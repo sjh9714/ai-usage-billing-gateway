@@ -6,13 +6,15 @@ import io.github.sungjh.aiusagebillinggateway.common.Hashing;
 import io.github.sungjh.aiusagebillinggateway.domain.UsageEvent;
 import io.github.sungjh.aiusagebillinggateway.domain.UsageMetric;
 import io.github.sungjh.aiusagebillinggateway.observability.MetricsService;
+import io.github.sungjh.aiusagebillinggateway.quota.QuotaService;
 import io.github.sungjh.aiusagebillinggateway.repository.UsageEventRepository;
 import io.github.sungjh.aiusagebillinggateway.security.AuthenticatedApiKey;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,14 +26,20 @@ public class UsageService {
     private final UsageEventRepository usageEventRepository;
     private final ObjectMapper objectMapper;
     private final MetricsService metricsService;
+    private final QuotaService quotaService;
+    private final Clock clock;
 
     public UsageService(
             UsageEventRepository usageEventRepository,
             ObjectMapper objectMapper,
-            MetricsService metricsService) {
+            MetricsService metricsService,
+            QuotaService quotaService,
+            Clock clock) {
         this.usageEventRepository = usageEventRepository;
         this.objectMapper = objectMapper;
         this.metricsService = metricsService;
+        this.quotaService = quotaService;
+        this.clock = clock;
     }
 
     @Transactional
@@ -49,21 +57,69 @@ public class UsageService {
         return usageEventRepository
                 .findByOrganizationIdAndIdempotencyKey(apiKey.organizationId(), idempotencyKey)
                 .map(existing -> duplicateOrConflict(existing, requestHash))
-                .orElseGet(() -> create(apiKey, idempotencyKey, requestHash, request));
+                .orElseGet(() -> {
+                    Instant occurredAt = occurredAt(request);
+                    return create(apiKey, idempotencyKey, requestHash, request, occurredAt);
+                });
     }
 
     @Transactional
-    public void recordGatewayUsage(AuthenticatedApiKey apiKey, String prompt) {
+    public Optional<UsageEventResponse> findGatewayReplay(
+            AuthenticatedApiKey apiKey,
+            String idempotencyKey,
+            String prompt) {
+        String scopedKey = gatewayIdempotencyKey(idempotencyKey);
+        String requestHash = requestHash(gatewayUsageRequest(prompt));
+        return usageEventRepository
+                .findByOrganizationIdAndIdempotencyKey(apiKey.organizationId(), scopedKey)
+                .map(existing -> duplicateOrConflict(existing, requestHash));
+    }
+
+    @Transactional
+    public UsageEventResponse recordGatewayUsage(
+            AuthenticatedApiKey apiKey,
+            String idempotencyKey,
+            String prompt) {
+        return recordGatewayUsage(apiKey, idempotencyKey, prompt, Instant.now(clock));
+    }
+
+    @Transactional
+    public UsageEventResponse recordGatewayUsage(
+            AuthenticatedApiKey apiKey,
+            String idempotencyKey,
+            String prompt,
+            Instant occurredAt) {
+        UsageEventRequest request = gatewayUsageRequest(prompt);
+        return create(
+                apiKey,
+                gatewayIdempotencyKey(idempotencyKey),
+                requestHash(request),
+                request,
+                occurredAt);
+    }
+
+    private UsageEventRequest gatewayUsageRequest(String prompt) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("source", "gateway");
+        metadata.put("promptHash", Hashing.sha256Hex(prompt));
         UsageEventRequest request = new UsageEventRequest(
                 UsageMetric.REQUEST,
                 1,
                 null,
-                objectMapper.valueToTree(Map.of("source", "gateway", "promptHash", Hashing.sha256Hex(prompt))));
-        create(apiKey, "gateway-" + UUID.randomUUID(), requestHash(request), request);
+                objectMapper.valueToTree(metadata));
+        return request;
+    }
+
+    private String gatewayIdempotencyKey(String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Idempotency-Key header is required");
+        }
+        return "gateway:" + idempotencyKey;
     }
 
     private UsageEventResponse duplicateOrConflict(UsageEvent existing, String requestHash) {
         if (!existing.getRequestHash().equals(requestHash)) {
+            metricsService.idempotencyConflict();
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Idempotency key was already used with a different payload");
@@ -76,25 +132,36 @@ public class UsageService {
             AuthenticatedApiKey apiKey,
             String idempotencyKey,
             String requestHash,
-            UsageEventRequest request) {
-        try {
-            UsageEvent event = usageEventRepository.save(new UsageEvent(
-                    apiKey.organizationId(),
-                    apiKey.apiKeyId(),
-                    idempotencyKey,
-                    requestHash,
-                    request.metric(),
-                    request.quantity(),
-                    request.occurredAt() == null ? Instant.now() : request.occurredAt(),
-                    metadataString(request.metadata())));
-            metricsService.usageIngested();
-            return new UsageEventResponse(event.getId(), false);
-        } catch (DataIntegrityViolationException exception) {
+            UsageEventRequest request,
+            Instant occurredAt) {
+        UUID eventId = UUID.randomUUID();
+        int inserted = usageEventRepository.insertIfAbsent(
+                eventId,
+                apiKey.organizationId(),
+                apiKey.apiKeyId(),
+                idempotencyKey,
+                requestHash,
+                request.metric().name(),
+                request.quantity(),
+                occurredAt,
+                metadataString(request.metadata()));
+        if (inserted == 0) {
             return usageEventRepository
                     .findByOrganizationIdAndIdempotencyKey(apiKey.organizationId(), idempotencyKey)
                     .map(existing -> duplicateOrConflict(existing, requestHash))
-                    .orElseThrow(() -> exception);
+                    .orElseThrow(() -> new IllegalStateException("Usage idempotency conflict could not be resolved"));
         }
+        quotaService.reserveMonthlyQuota(
+                apiKey.organizationId(),
+                request.metric(),
+                occurredAt,
+                request.quantity());
+        metricsService.usageIngested();
+        return new UsageEventResponse(eventId, false);
+    }
+
+    private Instant occurredAt(UsageEventRequest request) {
+        return request.occurredAt() == null ? Instant.now(clock) : request.occurredAt();
     }
 
     private String requestHash(UsageEventRequest request) {

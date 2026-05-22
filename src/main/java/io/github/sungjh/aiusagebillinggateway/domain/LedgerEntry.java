@@ -28,6 +28,9 @@ public class LedgerEntry {
     @Column(name = "transaction_group_id", nullable = false)
     private String transactionGroupId;
 
+    @Column(name = "original_transaction_group_id")
+    private String originalTransactionGroupId;
+
     @Column(nullable = false)
     private String type;
 
@@ -64,11 +67,38 @@ public class LedgerEntry {
             long amountMinor,
             String currency,
             String idempotencyKey) {
+        this(
+                organizationId,
+                invoiceId,
+                paymentId,
+                transactionGroupId,
+                null,
+                type,
+                account,
+                direction,
+                amountMinor,
+                currency,
+                idempotencyKey);
+    }
+
+    public LedgerEntry(
+            UUID organizationId,
+            UUID invoiceId,
+            UUID paymentId,
+            String transactionGroupId,
+            String originalTransactionGroupId,
+            String type,
+            String account,
+            LedgerDirection direction,
+            long amountMinor,
+            String currency,
+            String idempotencyKey) {
         this.id = UUID.randomUUID();
         this.organizationId = organizationId;
         this.invoiceId = invoiceId;
         this.paymentId = paymentId;
         this.transactionGroupId = transactionGroupId;
+        this.originalTransactionGroupId = originalTransactionGroupId;
         this.type = type;
         this.account = account;
         this.direction = direction;
@@ -88,5 +118,9 @@ public class LedgerEntry {
 
     public String getCurrency() {
         return currency;
+    }
+
+    public String getOriginalTransactionGroupId() {
+        return originalTransactionGroupId;
     }
 }

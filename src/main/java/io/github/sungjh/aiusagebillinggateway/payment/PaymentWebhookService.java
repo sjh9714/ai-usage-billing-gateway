@@ -88,13 +88,14 @@ public class PaymentWebhookService {
                 && !request.type().equals("payment.refunded")) {
             return new PaymentWebhookResponse(request.providerEventId(), false, "ignored");
         }
-        Invoice invoice = invoiceRepository.findById(request.invoiceId())
+        Invoice invoice = invoiceRepository.findByIdForUpdate(request.invoiceId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Invoice not found"));
         PaymentStatus paymentStatus = switch (request.type()) {
             case "payment.succeeded" -> PaymentStatus.SUCCEEDED;
             case "payment.failed" -> PaymentStatus.FAILED;
             default -> PaymentStatus.REFUNDED;
         };
+        Payment originalCapturedPayment = validatePaymentPayload(request, invoice, paymentStatus);
         Payment payment = paymentRepository.save(new Payment(
                 invoice.getOrganizationId(),
                 invoice.getId(),
@@ -107,6 +108,8 @@ public class PaymentWebhookService {
             ledgerService.recordPaymentSucceeded(invoice, payment);
         } else if (paymentStatus == PaymentStatus.FAILED) {
             invoice.markPaymentFailed();
+        } else if (paymentStatus == PaymentStatus.REFUNDED) {
+            ledgerService.recordPaymentRefunded(invoice, payment, originalCapturedPayment);
         }
         auditService.record(
                 invoice.getOrganizationId(),
@@ -118,8 +121,64 @@ public class PaymentWebhookService {
         return new PaymentWebhookResponse(request.providerEventId(), false, "processed");
     }
 
+    private Payment validatePaymentPayload(
+            PaymentWebhookRequest request,
+            Invoice invoice,
+            PaymentStatus paymentStatus) {
+        if (paymentStatus == PaymentStatus.SUCCEEDED) {
+            requireInvoiceAmountAndCurrency(request, invoice);
+            return null;
+        } else if (paymentStatus == PaymentStatus.REFUNDED) {
+            return requireRefundWithinCapturedBalance(request, invoice);
+        }
+        return null;
+    }
+
+    private void requireInvoiceAmountAndCurrency(PaymentWebhookRequest request, Invoice invoice) {
+        if (request.amountMinor() != invoice.getTotalAmountMinor()
+                || !invoice.getCurrency().equals(request.currency())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Payment amount or currency does not match invoice");
+        }
+        if (paymentRepository.existsByInvoiceIdAndStatus(invoice.getId(), PaymentStatus.SUCCEEDED)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invoice already has a captured payment");
+        }
+    }
+
+    private Payment requireRefundWithinCapturedBalance(PaymentWebhookRequest request, Invoice invoice) {
+        if (request.amountMinor() <= 0 || !invoice.getCurrency().equals(request.currency())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Refund amount or currency is invalid for invoice");
+        }
+        long capturedAmount = paymentRepository.sumAmountMinor(
+                invoice.getId(),
+                PaymentStatus.SUCCEEDED,
+                request.currency());
+        long refundedAmount = paymentRepository.sumAmountMinor(
+                invoice.getId(),
+                PaymentStatus.REFUNDED,
+                request.currency());
+        if (capturedAmount <= 0 || refundedAmount + request.amountMinor() > capturedAmount) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Refund exceeds captured payment amount");
+        }
+        return paymentRepository.findFirstByInvoiceIdAndStatusAndCurrencyOrderByCreatedAtAsc(
+                        invoice.getId(),
+                        PaymentStatus.SUCCEEDED,
+                        request.currency())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Refund requires a captured payment"));
+    }
+
     private PaymentWebhookResponse duplicateOrConflict(PaymentWebhookEvent existing, String payloadHash) {
         if (!existing.getPayloadHash().equals(payloadHash)) {
+            metricsService.webhookConflict();
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Provider event id was already used with a different payload");

@@ -11,13 +11,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
       - name: Whitespace check
-        run: git diff --check
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.base_ref }}" --depth=1
+            git diff --check "origin/${{ github.base_ref }}...HEAD"
+          else
+            git diff-tree --check --no-commit-id --root -r HEAD
+          fi
       - name: Source layout check
         run: |
           python3 - <<'PY'
@@ -50,10 +59,68 @@ jobs:
         run: ./gradlew test --no-daemon
       - name: Build
         run: ./gradlew build --no-daemon
+      - name: Upload Gradle test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-test-reports
+          path: |
+            build/reports/tests/test
+            build/test-results/test
+          if-no-files-found: ignore
+      - name: Script syntax check
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/reports/evidence
+
+          if [ -f scripts/run-full-mixed-evidence.sh ]; then
+            bash -n scripts/run-full-mixed-evidence.sh
+            echo "bash -n scripts/run-full-mixed-evidence.sh passed" \
+              | tee build/reports/evidence/run-full-mixed-evidence.syntax.txt
+          fi
+          if [ -f scripts/validate-k6-full-mixed-summary.mjs ]; then
+            node --check scripts/validate-k6-full-mixed-summary.mjs 2>&1 \
+              | tee build/reports/evidence/validate-k6-full-mixed-summary.node-check.txt
+            node --check scripts/summarize-full-mixed-evidence.mjs 2>&1 \
+              | tee build/reports/evidence/summarize-full-mixed-evidence.node-check.txt
+            node --check scripts/test-k6-evidence-tools.mjs 2>&1 \
+              | tee build/reports/evidence/test-k6-evidence-tools.node-check.txt
+
+            node scripts/validate-k6-full-mixed-summary.mjs \
+              docs/evidence/k6/mixed-usage-full-20260522081328-summary.json 2>&1 \
+              | tee build/reports/evidence/full-mixed-current-validation.txt
+
+            if node scripts/validate-k6-full-mixed-summary.mjs \
+              docs/evidence/k6/mixed-usage-full-20260522080203-summary.json \
+              > build/reports/evidence/full-mixed-superseded-validation.txt 2>&1; then
+              cat build/reports/evidence/full-mixed-superseded-validation.txt
+              echo "Expected superseded diagnostic summary validation to fail" >&2
+              exit 1
+            else
+              cat build/reports/evidence/full-mixed-superseded-validation.txt
+            fi
+
+            node scripts/test-k6-evidence-tools.mjs 2>&1 \
+              | tee build/reports/evidence/k6-evidence-tools-test.txt
+          fi
+      - name: Upload k6 evidence validator outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-evidence-validator-outputs
+          path: |
+            build/reports/evidence
+            docs/evidence/K6_EVIDENCE_MANIFEST.md
+            docs/evidence/k6/*summary.json
+          if-no-files-found: ignore
       - name: k6 inspect
         run: |
           if [ -f k6/mixed-usage-test.js ]; then
             docker run --rm -v "$PWD:/work" -w /work grafana/k6 inspect k6/mixed-usage-test.js
+            docker run --rm -v "$PWD:/work" -w /work grafana/k6 inspect \
+              -e K6_REQUIRE_OPTIONAL_PATHS=true \
+              k6/mixed-usage-test.js
           else
             echo "No k6 script yet"
           fi
