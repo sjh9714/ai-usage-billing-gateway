@@ -15,8 +15,13 @@ public class MetricsService {
     private final Counter invoicesFailed;
     private final Counter paymentWebhooksReceived;
     private final Counter paymentWebhookDuplicates;
+    private final Counter paymentWebhookConflicts;
     private final Counter ledgerEntriesCreated;
+    private final Counter ledgerGroupsCreated;
     private final Counter auditLogsCreated;
+    private final Counter gatewayRequests;
+    private final Counter gatewayRateLimited;
+    private final Counter idempotencyConflicts;
 
     public MetricsService(MeterRegistry meterRegistry) {
         this.usageEventsIngested = meterRegistry.counter("usage.events.ingested");
@@ -27,8 +32,13 @@ public class MetricsService {
         this.invoicesFailed = meterRegistry.counter("invoices.failed");
         this.paymentWebhooksReceived = meterRegistry.counter("payment.webhooks.received");
         this.paymentWebhookDuplicates = meterRegistry.counter("payment.webhooks.duplicates");
+        this.paymentWebhookConflicts = meterRegistry.counter("payment.webhooks.conflicts");
         this.ledgerEntriesCreated = meterRegistry.counter("ledger.entries.created");
+        this.ledgerGroupsCreated = meterRegistry.counter("ledger.groups.created");
         this.auditLogsCreated = meterRegistry.counter("audit.logs.created");
+        this.gatewayRequests = meterRegistry.counter("gateway.requests");
+        this.gatewayRateLimited = meterRegistry.counter("gateway.rate_limited");
+        this.idempotencyConflicts = meterRegistry.counter("idempotency.conflicts");
     }
 
     public void usageIngested() {
@@ -63,11 +73,31 @@ public class MetricsService {
         paymentWebhookDuplicates.increment();
     }
 
+    public void webhookConflict() {
+        paymentWebhookConflicts.increment();
+    }
+
     public void ledgerEntryCreated() {
         ledgerEntriesCreated.increment();
     }
 
+    public void ledgerGroupCreated() {
+        ledgerGroupsCreated.increment();
+    }
+
     public void auditLogCreated() {
         auditLogsCreated.increment();
+    }
+
+    public void gatewayRequest() {
+        gatewayRequests.increment();
+    }
+
+    public void gatewayRateLimited() {
+        gatewayRateLimited.increment();
+    }
+
+    public void idempotencyConflict() {
+        idempotencyConflicts.increment();
     }
 }

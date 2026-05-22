@@ -66,6 +66,13 @@ public class BillingService {
                 .orElseGet(() -> createInvoice(actorUserId, organizationId, period));
     }
 
+    @Transactional
+    public InvoiceResponse generateForScheduler(UUID organizationId, YearMonth period) {
+        return invoiceRepository.findByOrganizationIdAndBillingPeriod(organizationId, period.toString())
+                .map(invoice -> InvoiceResponse.from(invoice, true))
+                .orElseGet(() -> createInvoice(null, organizationId, period));
+    }
+
     private InvoiceResponse createInvoice(UUID actorUserId, UUID organizationId, YearMonth period) {
         try {
             Subscription subscription = subscriptionRepository.findByOrganizationId(organizationId)

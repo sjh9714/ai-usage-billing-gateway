@@ -37,6 +37,11 @@ payment:
 gateway:
   rate-limit-per-minute: 60
 
+billing:
+  invoice-scheduler:
+    enabled: false
+    cron: "0 10 0 1 * *"
+
 management:
   endpoints:
     web:

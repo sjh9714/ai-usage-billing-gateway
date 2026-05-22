@@ -8,7 +8,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
 
 class ApiKeyUsageQuotaIT extends IntegrationTestSupport {
@@ -46,6 +53,7 @@ class ApiKeyUsageQuotaIT extends IntegrationTestSupport {
 
         mockMvc.perform(post("/v1/gateway/mock-completion")
                         .header("X-API-Key", rawKey)
+                        .header("Idempotency-Key", "gateway-valid-1")
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"prompt":"hello"}
@@ -59,11 +67,148 @@ class ApiKeyUsageQuotaIT extends IntegrationTestSupport {
 
         mockMvc.perform(post("/v1/gateway/mock-completion")
                         .header("X-API-Key", rawKey)
+                        .header("Idempotency-Key", "gateway-revoked-1")
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"prompt":"hello again"}
                                 """))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void gatewayRetryWithSameIdempotencyKeyDoesNotCreateDuplicateUsage() throws Exception {
+        String token = signup("gateway-idempotent@example.com");
+        UUID organizationId = createOrganization(token, "Gateway Idempotent Org");
+        String rawKey = createApiKey(token, organizationId, "primary");
+
+        String payload = """
+                {"prompt":"same prompt"}
+                """;
+
+        mockMvc.perform(post("/v1/gateway/mock-completion")
+                        .header("X-API-Key", rawKey)
+                        .header("Idempotency-Key", "gateway-retry-1")
+                        .contentType(APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.duplicate").value(false));
+
+        mockMvc.perform(post("/v1/gateway/mock-completion")
+                        .header("X-API-Key", rawKey)
+                        .header("Idempotency-Key", "gateway-retry-1")
+                        .contentType(APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.duplicate").value(true));
+
+        Integer count = jdbcTemplate.queryForObject(
+                "select count(*) from usage_events where organization_id = ?",
+                Integer.class,
+                organizationId);
+        assertThat(count).isEqualTo(1);
+        assertThat(requestQuotaCounter(organizationId)).isEqualTo(1);
+    }
+
+    @Test
+    void gatewayRetryWithSameIdempotencyKeyRejectsPromptMismatch() throws Exception {
+        String token = signup("gateway-conflict@example.com");
+        UUID organizationId = createOrganization(token, "Gateway Conflict Org");
+        String rawKey = createApiKey(token, organizationId, "primary");
+
+        mockMvc.perform(post("/v1/gateway/mock-completion")
+                        .header("X-API-Key", rawKey)
+                        .header("Idempotency-Key", "gateway-conflict-1")
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"prompt":"first prompt"}
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/v1/gateway/mock-completion")
+                        .header("X-API-Key", rawKey)
+                        .header("Idempotency-Key", "gateway-conflict-1")
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"prompt":"different prompt"}
+                                """))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void gatewayIdempotentRetryIsResolvedBeforeQuotaCheck() throws Exception {
+        String token = signup("gateway-quota-retry@example.com");
+        UUID organizationId = createOrganization(token, "Gateway Quota Retry Org");
+        String rawKey = createApiKey(token, organizationId, "primary");
+        jdbcTemplate.update("update plans set included_quantity = 1 where code = 'FREE'");
+
+        String payload = """
+                {"prompt":"last allowed request"}
+                """;
+
+        mockMvc.perform(post("/v1/gateway/mock-completion")
+                        .header("X-API-Key", rawKey)
+                        .header("Idempotency-Key", "gateway-last-quota-1")
+                        .contentType(APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.duplicate").value(false));
+
+        mockMvc.perform(post("/v1/gateway/mock-completion")
+                        .header("X-API-Key", rawKey)
+                        .header("Idempotency-Key", "gateway-last-quota-1")
+                        .contentType(APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.duplicate").value(true));
+    }
+
+    @Test
+    void parallelGatewayRetriesWithSameIdempotencyKeyStayIdempotentAtQuotaBoundary() throws Exception {
+        String token = signup("gateway-parallel-retry@example.com");
+        UUID organizationId = createOrganization(token, "Gateway Parallel Retry Org");
+        String rawKey = createApiKey(token, organizationId, "primary");
+        jdbcTemplate.update("update plans set included_quantity = 1 where code = 'FREE'");
+
+        int requestCount = 10;
+        ExecutorService executor = Executors.newFixedThreadPool(requestCount);
+        CountDownLatch readyLatch = new CountDownLatch(requestCount);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        List<Future<Integer>> futures = new ArrayList<>();
+
+        for (int index = 0; index < requestCount; index++) {
+            futures.add(executor.submit(() -> {
+                readyLatch.countDown();
+                startLatch.await();
+                return mockMvc.perform(post("/v1/gateway/mock-completion")
+                                .header("X-API-Key", rawKey)
+                                .header("Idempotency-Key", "gateway-parallel-retry-key")
+                                .contentType(APPLICATION_JSON)
+                                .content("""
+                                        {"prompt":"same prompt at quota edge"}
+                                        """))
+                        .andReturn()
+                        .getResponse()
+                        .getStatus();
+            }));
+        }
+
+        readyLatch.await();
+        startLatch.countDown();
+
+        List<Integer> statuses = new ArrayList<>();
+        for (Future<Integer> future : futures) {
+            statuses.add(future.get());
+        }
+        executor.shutdown();
+
+        Integer usageCount = jdbcTemplate.queryForObject(
+                "select count(*) from usage_events where organization_id = ?",
+                Integer.class,
+                organizationId);
+
+        assertThat(statuses).allMatch(status -> status == 200);
+        assertThat(usageCount).isEqualTo(1);
+        assertThat(requestQuotaCounter(organizationId)).isEqualTo(1);
     }
 
     @Test
@@ -143,6 +288,58 @@ class ApiKeyUsageQuotaIT extends IntegrationTestSupport {
     }
 
     @Test
+    void parallelExplicitUsageRetriesWithSameIdempotencyKeyStayIdempotentAtQuotaBoundary() throws Exception {
+        String token = signup("usage-parallel-retry@example.com");
+        UUID organizationId = createOrganization(token, "Usage Parallel Retry Org");
+        String rawKey = createApiKey(token, organizationId, "primary");
+        jdbcTemplate.update("update plans set included_quantity = 1 where code = 'FREE'");
+
+        int requestCount = 10;
+        ExecutorService executor = Executors.newFixedThreadPool(requestCount);
+        CountDownLatch readyLatch = new CountDownLatch(requestCount);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        List<Future<Integer>> futures = new ArrayList<>();
+
+        for (int index = 0; index < requestCount; index++) {
+            futures.add(executor.submit(() -> {
+                readyLatch.countDown();
+                startLatch.await();
+                return mockMvc.perform(post("/api/usage/events")
+                                .header("X-API-Key", rawKey)
+                                .header("Idempotency-Key", "usage-parallel-retry-key")
+                                .contentType(APPLICATION_JSON)
+                                .content("""
+                                        {"metric":"REQUEST","quantity":1}
+                                        """))
+                        .andReturn()
+                        .getResponse()
+                        .getStatus();
+            }));
+        }
+
+        readyLatch.await();
+        startLatch.countDown();
+
+        List<Integer> statuses = new ArrayList<>();
+        for (Future<Integer> future : futures) {
+            statuses.add(future.get());
+        }
+        executor.shutdown();
+
+        long createdCount = statuses.stream().filter(status -> status == 201).count();
+        long duplicateCount = statuses.stream().filter(status -> status == 200).count();
+        Integer usageCount = jdbcTemplate.queryForObject(
+                "select count(*) from usage_events where organization_id = ?",
+                Integer.class,
+                organizationId);
+
+        assertThat(createdCount).isEqualTo(1);
+        assertThat(duplicateCount).isEqualTo(requestCount - 1);
+        assertThat(usageCount).isEqualTo(1);
+        assertThat(requestQuotaCounter(organizationId)).isEqualTo(1);
+    }
+
+    @Test
     void invalidUsageQuantityIsRejected() throws Exception {
         String token = signup("owner@example.com");
         UUID organizationId = createOrganization(token, "Invalid Usage Org");
@@ -176,6 +373,7 @@ class ApiKeyUsageQuotaIT extends IntegrationTestSupport {
 
         mockMvc.perform(post("/v1/gateway/mock-completion")
                         .header("X-API-Key", rawKey)
+                        .header("Idempotency-Key", "gateway-quota-blocked-1")
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"prompt":"blocked by quota"}
@@ -189,6 +387,7 @@ class ApiKeyUsageQuotaIT extends IntegrationTestSupport {
 
         mockMvc.perform(post("/v1/gateway/mock-completion")
                         .header("X-API-Key", secondRawKey)
+                        .header("Idempotency-Key", "gateway-rate-1")
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"prompt":"first"}
@@ -196,6 +395,7 @@ class ApiKeyUsageQuotaIT extends IntegrationTestSupport {
                 .andExpect(status().isOk());
         mockMvc.perform(post("/v1/gateway/mock-completion")
                         .header("X-API-Key", secondRawKey)
+                        .header("Idempotency-Key", "gateway-rate-2")
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"prompt":"second"}
@@ -203,6 +403,7 @@ class ApiKeyUsageQuotaIT extends IntegrationTestSupport {
                 .andExpect(status().isOk());
         mockMvc.perform(post("/v1/gateway/mock-completion")
                         .header("X-API-Key", secondRawKey)
+                        .header("Idempotency-Key", "gateway-rate-3")
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"prompt":"third"}
@@ -214,10 +415,215 @@ class ApiKeyUsageQuotaIT extends IntegrationTestSupport {
         String thirdRawKey = createApiKey(thirdToken, thirdOrganizationId, "primary");
         mockMvc.perform(post("/v1/gateway/mock-completion")
                         .header("X-API-Key", thirdRawKey)
+                        .header("Idempotency-Key", "gateway-independent-1")
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"prompt":"independent"}
                                 """))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void explicitUsageEventsCannotOvershootMonthlyQuota() throws Exception {
+        String token = signup("usage-quota-explicit@example.com");
+        UUID organizationId = createOrganization(token, "Explicit Usage Quota Org");
+        String rawKey = createApiKey(token, organizationId, "primary");
+        jdbcTemplate.update("update plans set included_quantity = 1 where code = 'FREE'");
+
+        mockMvc.perform(post("/api/usage/events")
+                        .header("X-API-Key", rawKey)
+                        .header("Idempotency-Key", "usage-quota-explicit-1")
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"metric":"REQUEST","quantity":1}
+                                """))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/usage/events")
+                        .header("X-API-Key", rawKey)
+                        .header("Idempotency-Key", "usage-quota-explicit-2")
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"metric":"REQUEST","quantity":1}
+                                """))
+                .andExpect(status().isTooManyRequests());
+
+        Integer usageCount = jdbcTemplate.queryForObject(
+                "select count(*) from usage_events where organization_id = ?",
+                Integer.class,
+                organizationId);
+        assertThat(usageCount).isEqualTo(1);
+        assertThat(requestQuotaCounter(organizationId)).isEqualTo(1);
+    }
+
+    @Test
+    void explicitUsageQuotaIsReservedByOccurredAtUtcMonth() throws Exception {
+        String token = signup("usage-quota-period@example.com");
+        UUID organizationId = createOrganization(token, "Usage Quota Period Org");
+        String rawKey = createApiKey(token, organizationId, "primary");
+        jdbcTemplate.update("update plans set included_quantity = 1 where code = 'FREE'");
+
+        mockMvc.perform(post("/api/usage/events")
+                        .header("X-API-Key", rawKey)
+                        .header("Idempotency-Key", "usage-quota-may")
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "metric":"REQUEST",
+                                  "quantity":1,
+                                  "occurredAt":"2026-05-31T23:59:59Z"
+                                }
+                                """))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/usage/events")
+                        .header("X-API-Key", rawKey)
+                        .header("Idempotency-Key", "usage-quota-june")
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "metric":"REQUEST",
+                                  "quantity":1,
+                                  "occurredAt":"2026-06-01T00:00:00Z"
+                                }
+                                """))
+                .andExpect(status().isCreated());
+
+        assertThat(requestQuotaCounter(organizationId, LocalDate.of(2026, 5, 1)))
+                .isEqualTo(1);
+        assertThat(requestQuotaCounter(organizationId, LocalDate.of(2026, 6, 1)))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void parallelExplicitUsageEventsCannotOvershootMonthlyQuota() throws Exception {
+        String token = signup("usage-quota-parallel@example.com");
+        UUID organizationId = createOrganization(token, "Parallel Explicit Usage Quota Org");
+        String rawKey = createApiKey(token, organizationId, "primary");
+        jdbcTemplate.update("update plans set included_quantity = 1 where code = 'FREE'");
+
+        int requestCount = 10;
+        ExecutorService executor = Executors.newFixedThreadPool(requestCount);
+        CountDownLatch readyLatch = new CountDownLatch(requestCount);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        List<Future<Integer>> futures = new ArrayList<>();
+
+        for (int index = 0; index < requestCount; index++) {
+            int requestIndex = index;
+            futures.add(executor.submit(() -> {
+                readyLatch.countDown();
+                startLatch.await();
+                return mockMvc.perform(post("/api/usage/events")
+                                .header("X-API-Key", rawKey)
+                                .header("Idempotency-Key", "usage-parallel-quota-" + requestIndex)
+                                .contentType(APPLICATION_JSON)
+                                .content("""
+                                        {"metric":"REQUEST","quantity":1}
+                                        """))
+                        .andReturn()
+                        .getResponse()
+                        .getStatus();
+            }));
+        }
+
+        readyLatch.await();
+        startLatch.countDown();
+
+        List<Integer> statuses = new ArrayList<>();
+        for (Future<Integer> future : futures) {
+            statuses.add(future.get());
+        }
+        executor.shutdown();
+
+        long createdCount = statuses.stream().filter(status -> status == 201).count();
+        long tooManyRequestsCount = statuses.stream().filter(status -> status == 429).count();
+        Integer usageCount = jdbcTemplate.queryForObject(
+                "select count(*) from usage_events where organization_id = ?",
+                Integer.class,
+                organizationId);
+
+        assertThat(createdCount).isEqualTo(1);
+        assertThat(tooManyRequestsCount).isEqualTo(requestCount - 1);
+        assertThat(usageCount).isEqualTo(1);
+        assertThat(requestQuotaCounter(organizationId)).isEqualTo(1);
+    }
+
+    @Test
+    void parallelGatewayCallsCannotOvershootMonthlyQuota() throws Exception {
+        String token = signup("gateway-quota-parallel@example.com");
+        UUID organizationId = createOrganization(token, "Gateway Parallel Quota Org");
+        String rawKey = createApiKey(token, organizationId, "primary");
+        jdbcTemplate.update("update plans set included_quantity = 1 where code = 'FREE'");
+
+        int requestCount = 10;
+        ExecutorService executor = Executors.newFixedThreadPool(requestCount);
+        CountDownLatch readyLatch = new CountDownLatch(requestCount);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        List<Future<Integer>> futures = new ArrayList<>();
+
+        for (int index = 0; index < requestCount; index++) {
+            int requestIndex = index;
+            futures.add(executor.submit(() -> {
+                readyLatch.countDown();
+                startLatch.await();
+                return mockMvc.perform(post("/v1/gateway/mock-completion")
+                                .header("X-API-Key", rawKey)
+                                .header("Idempotency-Key", "gateway-parallel-quota-" + requestIndex)
+                                .contentType(APPLICATION_JSON)
+                                .content("""
+                                        {"prompt":"parallel quota request %d"}
+                                        """.formatted(requestIndex)))
+                        .andReturn()
+                        .getResponse()
+                        .getStatus();
+            }));
+        }
+
+        readyLatch.await();
+        startLatch.countDown();
+
+        List<Integer> statuses = new ArrayList<>();
+        for (Future<Integer> future : futures) {
+            statuses.add(future.get());
+        }
+        executor.shutdown();
+
+        long okCount = statuses.stream().filter(status -> status == 200).count();
+        long tooManyRequestsCount = statuses.stream().filter(status -> status == 429).count();
+        Integer usageCount = jdbcTemplate.queryForObject(
+                "select count(*) from usage_events where organization_id = ?",
+                Integer.class,
+                organizationId);
+
+        assertThat(okCount).isEqualTo(1);
+        assertThat(tooManyRequestsCount).isEqualTo(requestCount - 1);
+        assertThat(usageCount).isEqualTo(1);
+        assertThat(requestQuotaCounter(organizationId)).isEqualTo(1);
+    }
+
+    private Long requestQuotaCounter(UUID organizationId) {
+        return jdbcTemplate.queryForObject(
+                """
+                select coalesce(sum(used_quantity), 0)
+                  from quota_counters
+                 where organization_id = ?
+                   and metric = 'REQUEST'
+                """,
+                Long.class,
+                organizationId);
+    }
+
+    private Long requestQuotaCounter(UUID organizationId, LocalDate periodStart) {
+        return jdbcTemplate.queryForObject(
+                """
+                select coalesce(sum(used_quantity), 0)
+                  from quota_counters
+                 where organization_id = ?
+                   and metric = 'REQUEST'
+                   and period_start = ?
+                """,
+                Long.class,
+                organizationId,
+                periodStart);
     }
 }

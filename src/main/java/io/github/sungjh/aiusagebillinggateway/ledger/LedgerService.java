@@ -103,6 +103,46 @@ public class LedgerService {
                 Map.of("transactionGroupId", group));
     }
 
+    public void recordPaymentRefunded(Invoice invoice, Payment payment, Payment originalPayment) {
+        if (payment.getAmountMinor() <= 0) {
+            return;
+        }
+        String group = "payment:" + payment.getId() + ":refunded";
+        String originalGroup = "payment:" + originalPayment.getId() + ":succeeded";
+        appendBalanced(List.of(
+                new LedgerEntry(
+                        invoice.getOrganizationId(),
+                        invoice.getId(),
+                        payment.getId(),
+                        group,
+                        originalGroup,
+                        "PAYMENT_REFUNDED",
+                        "ACCOUNTS_RECEIVABLE",
+                        LedgerDirection.DEBIT,
+                        payment.getAmountMinor(),
+                        payment.getCurrency(),
+                        group + ":receivable"),
+                new LedgerEntry(
+                        invoice.getOrganizationId(),
+                        invoice.getId(),
+                        payment.getId(),
+                        group,
+                        originalGroup,
+                        "PAYMENT_REFUNDED",
+                        "CASH",
+                        LedgerDirection.CREDIT,
+                        payment.getAmountMinor(),
+                        payment.getCurrency(),
+                        group + ":cash")));
+        auditService.record(
+                invoice.getOrganizationId(),
+                null,
+                "LEDGER_ENTRY_GROUP_CREATED",
+                "Payment",
+                payment.getId(),
+                Map.of("transactionGroupId", group));
+    }
+
     private void appendBalanced(List<LedgerEntry> entries) {
         long debit = entries.stream()
                 .filter(entry -> entry.getDirection() == LedgerDirection.DEBIT)
@@ -130,5 +170,6 @@ public class LedgerService {
             ledgerEntryRepository.save(entry);
             metricsService.ledgerEntryCreated();
         }
+        metricsService.ledgerGroupCreated();
     }
 }

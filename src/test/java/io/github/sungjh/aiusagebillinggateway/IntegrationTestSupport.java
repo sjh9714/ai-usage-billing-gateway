@@ -74,6 +74,7 @@ abstract class IntegrationTestSupport {
                     payments,
                     invoice_items,
                     invoices,
+                    quota_counters,
                     usage_events,
                     api_keys,
                     subscriptions,
@@ -94,6 +95,10 @@ abstract class IntegrationTestSupport {
                        when 'FREE' then 0
                        when 'PRO' then 2
                        else 1
+                   end,
+                   overage_allowed = case code
+                       when 'FREE' then false
+                       else true
                    end
                 """);
         redisTemplate.getConnectionFactory().getConnection().serverCommands().flushDb();

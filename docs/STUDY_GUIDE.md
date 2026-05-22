@@ -24,4 +24,4 @@ This project shows backend concerns that are easy to miss in CRUD projects:
 
 - The repository includes verified integration tests for tenant isolation, API key auth, idempotency, webhook handling, ledger balance, and audit secret hygiene.
 - The repository uses a mock AI provider and mock payment provider.
-- The k6 script is present, but performance result is pending until a real run is recorded.
+- k6 local smoke evidence는 기록했지만 throughput/latency/error-rate benchmark 결과는 추가 측정 예정으로 둡니다.
