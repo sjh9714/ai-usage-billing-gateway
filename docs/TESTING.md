@@ -16,7 +16,7 @@
 | quota / rate limit | `ApiKeyUsageQuotaIT`, `QuotaServiceTest` | gateway/explicit usage insert + 같은 transaction의 `quota_counters` reservation, `occurredAt` 기준 UTC 월별 counter 분리, Redis 장애 fail-closed 503 |
 | invoice idempotency | `BillingPaymentLedgerAuditIT`, `MonthlyInvoiceSchedulerIT`, `MonthlyInvoiceSchedulerTest` | organization + period unique constraint, scheduler path, active subscription organization deduplication |
 | payment webhook duplicate/conflict | `BillingPaymentLedgerAuditIT` | provider event id + payload hash 기준 duplicate/conflict, 같은 invoice의 두 번째 capture 차단 |
-| append-only ledger / audit | `BillingPaymentLedgerAuditIT`, ledger/audit unit tests | ledger/audit update/delete 거부, balanced entry, partial refund별 별도 reversal group, refund reversal의 original ledger group 추적 |
+| append-only ledger / audit | `BillingPaymentLedgerAuditIT`, ledger/audit unit tests | ledger/audit update/delete 거부, balanced entry, partial refund별 별도 reversal group, refund reversal의 original ledger group 추적, audit metadata sanitizer의 nested Map/List redaction |
 | k6 script syntax/options | `node --check k6/mixed-usage-test.js`, `k6 inspect k6/mixed-usage-test.js`, `k6 inspect -e K6_REQUIRE_OPTIONAL_PATHS=true k6/mixed-usage-test.js` | default / optional threshold 로딩 |
 | full mixed evidence capture syntax | `bash -n scripts/run-full-mixed-evidence.sh` | 반복 full mixed artifact 수집 스크립트의 shell syntax |
 | full mixed summary validator | `node scripts/validate-k6-full-mixed-summary.mjs docs/evidence/k6/mixed-usage-full-20260522081328-summary.json`, superseded diagnostic artifact reject check | k6 summary-export의 `value/count` metric shape에서 checks 100%, HTTP failure 0, invoice/webhook branch 실행, optional skip 0 검증 |

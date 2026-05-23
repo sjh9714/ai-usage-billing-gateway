@@ -70,7 +70,7 @@ This is a simplified ledger model and does not claim accounting compliance.
 
 Audit logs are append-only and organization-scoped. PostgreSQL triggers reject update and delete operations on `audit_logs`.
 
-The implementation records organization creation, member changes, API key creation/revocation, subscription changes, invoice generation, webhook processing, and ledger group creation. Audit metadata stores key prefixes but not raw API keys or secrets.
+The implementation records organization creation, member changes, API key creation/revocation, subscription changes, invoice generation, webhook processing, and ledger group creation. Audit metadata stores key prefixes but not raw API keys or secrets. `AuditService` sanitizes metadata at the persistence boundary by redacting sensitive key names case-insensitively, including nested Map/List values.
 
 ## Observability
 
