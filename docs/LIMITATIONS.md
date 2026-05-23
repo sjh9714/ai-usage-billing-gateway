@@ -14,7 +14,6 @@
 | Invoice scheduler operations | `MonthlyInvoiceScheduler`는 이전 월 invoice idempotency와 per-run organization failure isolation을 검증했습니다. distributed lock, partitioned batch, persistent retry table, 운영 스케줄 관리는 아직 주장하지 않습니다. |
 | Quota reservation scope | FREE처럼 overage를 허용하지 않는 plan에서 gateway mock completion과 explicit usage ingestion은 `quota_counters` 월별 counter를 같은 transaction에서 증가시켜 병렬 quota 초과를 막는 시나리오를 검증했습니다. explicit usage의 `occurredAt` 기준 UTC 월별 counter 분리도 검증했지만, 운영형 quota reconciliation dashboard나 distributed traffic tuning은 아직 주장하지 않습니다. |
 | Refund accounting compliance | captured payment amount를 넘는 refund는 차단하고 partial refund별 append-only reversal ledger와 original ledger group 추적을 검증했습니다. 실제 회계 compliance는 아직 주장하지 않습니다. |
-| Audit sanitizer | caller가 안전한 metadata를 넘긴다는 전제 |
 | Alerting / dashboard / tracing / SLO | low-cardinality metric counter 등록 수준 |
 
 ## 다음 개선 우선순위

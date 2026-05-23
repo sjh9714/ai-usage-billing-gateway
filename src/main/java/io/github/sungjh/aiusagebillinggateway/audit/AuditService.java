@@ -14,14 +14,17 @@ public class AuditService {
     private final AuditLogRepository auditLogRepository;
     private final ObjectMapper objectMapper;
     private final MetricsService metricsService;
+    private final AuditMetadataSanitizer auditMetadataSanitizer;
 
     public AuditService(
             AuditLogRepository auditLogRepository,
             ObjectMapper objectMapper,
-            MetricsService metricsService) {
+            MetricsService metricsService,
+            AuditMetadataSanitizer auditMetadataSanitizer) {
         this.auditLogRepository = auditLogRepository;
         this.objectMapper = objectMapper;
         this.metricsService = metricsService;
+        this.auditMetadataSanitizer = auditMetadataSanitizer;
     }
 
     public void record(
@@ -32,7 +35,7 @@ public class AuditService {
             UUID targetId,
             Map<String, ?> metadata) {
         try {
-            String safeMetadata = objectMapper.writeValueAsString(metadata == null ? Map.of() : metadata);
+            String safeMetadata = objectMapper.writeValueAsString(auditMetadataSanitizer.sanitize(metadata));
             auditLogRepository.save(new AuditLog(
                     organizationId,
                     actorUserId,
