@@ -1,0 +1,25 @@
+AI Usage Billing full mixed evidence capture
+Captured at: 20260523T015029Z
+Git commit: 0ae6bef
+Git status:
+?? docs/evidence/k6/full-mixed-20260523T015029Z/
+
+Inputs:
+BASE_URL=http://localhost:8080
+PROMETHEUS_URL=http://localhost:8080/actuator/prometheus
+K6_RUNS=3
+K6_VUS=5
+K6_DURATION=30s
+K6_REQUIRE_OPTIONAL_PATHS=true
+PROMETHEUS_CAPTURE=best-effort
+ORG_ID=b27fefc6-b34d-408a-9729-56e37f49fecc
+WEBHOOK_INVOICE_ID=2bf3bd61-7d33-413a-a1d9-2507b8aa7e8a
+WEBHOOK_AMOUNT_MINOR=2900
+INVOICE_PERIOD=2026-05
+
+Secret values intentionally omitted:
+API_KEY, JWT_TOKEN, WEBHOOK_SECRET
+
+Tool versions:
+k6 v1.5.0 (commit/devel, go1.25.5, darwin/arm64)
+v22.22.0
