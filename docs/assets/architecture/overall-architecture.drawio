@@ -1,0 +1,85 @@
+<mxfile host="app.diagrams.net" modified="2026-05-23T00:00:00.000Z" agent="Codex" version="24.0.0">
+  <diagram id="overall-architecture" name="Overall Architecture">
+    <mxGraphModel dx="1280" dy="760" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1280" pageHeight="760" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="AI Usage Billing Gateway 전체 아키텍처" style="text;html=1;strokeColor=none;fillColor=none;fontSize=26;fontStyle=1;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="48" y="28" width="520" height="32" as="geometry"/>
+        </mxCell>
+        <mxCell id="subtitle" value="핵심 흐름과 검증 대상 경계를 설명하는 단순화된 구조도" style="text;html=1;strokeColor=none;fillColor=none;fontSize=14;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="48" y="62" width="520" height="24" as="geometry"/>
+        </mxCell>
+        <mxCell id="gateway_group" value="Gateway / Usage Flow" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;fontSize=18;fontStyle=1;align=left;verticalAlign=top;spacingLeft=22;spacingTop=16;" vertex="1" parent="1">
+          <mxGeometry x="32" y="112" width="420" height="520" as="geometry"/>
+        </mxCell>
+        <mxCell id="billing_group" value="Billing / Payment Flow" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;fontSize=18;fontStyle=1;align=left;verticalAlign=top;spacingLeft=22;spacingTop=16;" vertex="1" parent="1">
+          <mxGeometry x="486" y="112" width="360" height="520" as="geometry"/>
+        </mxCell>
+        <mxCell id="persistence_group" value="Persistence / Audit Boundary" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;fontSize=18;fontStyle=1;align=left;verticalAlign=top;spacingLeft=22;spacingTop=16;" vertex="1" parent="1">
+          <mxGeometry x="880" y="112" width="368" height="520" as="geometry"/>
+        </mxCell>
+        <mxCell id="client" value="Client" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="72" y="186" width="150" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="api_key_auth" value="API Key&lt;br&gt;Auth" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="264" y="186" width="150" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="gateway_api" value="Gateway&lt;br&gt;API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="72" y="292" width="150" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="idempotency" value="Idempotency&lt;br&gt;Service" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="264" y="292" width="150" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="redis_rate_limit" value="Redis Rate&lt;br&gt;Limit" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="72" y="398" width="150" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="quota" value="Quota&lt;br&gt;Reservation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="264" y="398" width="150" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="usage_event" value="Usage Event&lt;br&gt;Service" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="156" y="506" width="174" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="invoice_scheduler" value="Invoice&lt;br&gt;Scheduler" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="580" y="186" width="172" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="payment_provider" value="Payment&lt;br&gt;Provider" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="548" y="314" width="172" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="webhook_handler" value="Webhook&lt;br&gt;Handler" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="548" y="426" width="172" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="ledger_service" value="Ledger&lt;br&gt;Service" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="636" y="538" width="172" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="audit_sanitizer" value="Audit Metadata&lt;br&gt;Sanitizer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fdf2f8;strokeColor=#db2777;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="930" y="186" width="236" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="audit_log" value="Audit&lt;br&gt;Log" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fdf2f8;strokeColor=#db2777;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="930" y="292" width="236" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="postgresql" value="PostgreSQL&lt;br&gt;&lt;font style=&quot;font-size: 14px;&quot;&gt;Usage / Invoice&lt;br&gt;Ledger / Audit&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0fdf4;strokeColor=#16a34a;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="930" y="426" width="236" height="118" as="geometry"/>
+        </mxCell>
+        <mxCell id="claim" value="Claim boundary: 실제 AI provider, 실제 PG, production benchmark/SLO를 주장하지 않습니다." style="text;html=1;strokeColor=none;fillColor=none;fontSize=12;align=left;" vertex="1" parent="1">
+          <mxGeometry x="48" y="690" width="560" height="24" as="geometry"/>
+        </mxCell>
+        <mxCell id="e1" value="" style="endArrow=block;html=1;rounded=0;strokeColor=#1f2937;strokeWidth=2;" edge="1" parent="1" source="client" target="api_key_auth"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e2" value="" style="endArrow=block;html=1;rounded=0;strokeColor=#1f2937;strokeWidth=2;" edge="1" parent="1" source="api_key_auth" target="gateway_api"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e3" value="" style="endArrow=block;html=1;rounded=0;strokeColor=#1f2937;strokeWidth=2;" edge="1" parent="1" source="gateway_api" target="idempotency"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e4" value="" style="endArrow=block;html=1;rounded=0;strokeColor=#1f2937;strokeWidth=2;" edge="1" parent="1" source="idempotency" target="redis_rate_limit"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e5" value="" style="endArrow=block;html=1;rounded=0;strokeColor=#1f2937;strokeWidth=2;" edge="1" parent="1" source="redis_rate_limit" target="quota"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e6" value="" style="endArrow=block;html=1;rounded=0;strokeColor=#1f2937;strokeWidth=2;" edge="1" parent="1" source="quota" target="usage_event"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e7" value="" style="endArrow=block;html=1;rounded=0;strokeColor=#1f2937;strokeWidth=2;" edge="1" parent="1" source="usage_event" target="postgresql"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e8" value="" style="endArrow=block;html=1;rounded=0;strokeColor=#1f2937;strokeWidth=2;" edge="1" parent="1" source="postgresql" target="invoice_scheduler"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e9" value="" style="endArrow=block;html=1;rounded=0;strokeColor=#1f2937;strokeWidth=2;" edge="1" parent="1" source="payment_provider" target="webhook_handler"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e10" value="" style="endArrow=block;html=1;rounded=0;strokeColor=#1f2937;strokeWidth=2;" edge="1" parent="1" source="webhook_handler" target="ledger_service"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e11" value="" style="endArrow=block;html=1;rounded=0;strokeColor=#1f2937;strokeWidth=2;" edge="1" parent="1" source="ledger_service" target="postgresql"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e12" value="" style="endArrow=block;html=1;rounded=0;strokeColor=#1f2937;strokeWidth=2;dashed=1;" edge="1" parent="1" source="idempotency" target="audit_sanitizer"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e13" value="" style="endArrow=block;html=1;rounded=0;strokeColor=#1f2937;strokeWidth=2;dashed=1;" edge="1" parent="1" source="webhook_handler" target="audit_sanitizer"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e14" value="" style="endArrow=block;html=1;rounded=0;strokeColor=#1f2937;strokeWidth=2;" edge="1" parent="1" source="audit_sanitizer" target="audit_log"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e15" value="" style="endArrow=block;html=1;rounded=0;strokeColor=#1f2937;strokeWidth=2;" edge="1" parent="1" source="audit_log" target="postgresql"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

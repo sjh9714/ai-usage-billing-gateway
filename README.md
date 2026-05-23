@@ -33,6 +33,24 @@ refund ledger, audit secret hygiene**를 코드와 테스트로 검증하는 데
 
 ---
 
+## 전체 아키텍처
+
+![AI Usage Billing Gateway 전체 아키텍처](docs/assets/architecture/overall-architecture.svg)
+
+이 다이어그램은 구현된 핵심 흐름과 검증 대상 경계를 설명하기 위한 단순화된 구조도이며, 운영 배포 토폴로지나 production SLO를 주장하지 않습니다.
+
+| 핵심 설계 판단 | 이유 | 검증 상태 |
+| --- | --- | --- |
+| raw API key 미저장 | 생성 응답 이후에는 prefix/hash만 남겨 key 유출 위험과 audit 노출 위험을 줄입니다. | 시나리오 검증 |
+| usage/gateway idempotency 분리 | gateway retry와 명시적 usage ingestion이 같은 idempotency key로 충돌하지 않게 합니다. | 시나리오 검증 |
+| quota reservation과 usage 저장 결합 | usage 기록과 월별 counter 증가가 서로 어긋나는 상황을 줄입니다. | 시나리오 검증 |
+| invoice/webhook/ledger 경계 분리 | invoice 생성, provider webhook, append-only ledger를 각각 재시도 가능한 경계로 둡니다. | 시나리오 검증 |
+| audit metadata sanitizer | secret 계열 key가 audit log에 남지 않도록 저장 직전에 redaction합니다. | 시나리오 검증 |
+
+상세 설명과 편집 가능한 원본은 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)와 [overall-architecture.drawio](docs/assets/architecture/overall-architecture.drawio)에 있습니다.
+
+---
+
 ## 핵심 문제
 
 | 문제 | 설계 대응 | 검증 상태 |

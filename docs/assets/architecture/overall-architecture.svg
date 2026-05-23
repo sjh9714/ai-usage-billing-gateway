@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760" role="img" aria-labelledby="title desc">
+  <title id="title">AI Usage Billing Gateway overall architecture</title>
+  <desc id="desc">Simplified architecture diagram for API key auth, gateway idempotency, quota reservation, invoice, webhook, ledger, audit, and PostgreSQL persistence.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2 2 L10 6 L2 10 Z" fill="#1f2937"/>
+    </marker>
+    <style>
+      .bg { fill: #f8fafc; }
+      .group { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 18; }
+      .box { fill: #ffffff; stroke: #334155; stroke-width: 2; rx: 10; }
+      .accent { fill: #eff6ff; stroke: #2563eb; }
+      .data { fill: #f0fdf4; stroke: #16a34a; }
+      .external { fill: #fff7ed; stroke: #ea580c; }
+      .audit { fill: #fdf2f8; stroke: #db2777; }
+      .label { font-family: Arial, Helvetica, sans-serif; font-size: 18px; fill: #0f172a; font-weight: 700; }
+      .small { font-family: Arial, Helvetica, sans-serif; font-size: 14px; fill: #334155; }
+      .tiny { font-family: Arial, Helvetica, sans-serif; font-size: 12px; fill: #475569; }
+      .title { font-family: Arial, Helvetica, sans-serif; font-size: 26px; fill: #0f172a; font-weight: 700; }
+      .line { stroke: #1f2937; stroke-width: 2.2; fill: none; marker-end: url(#arrow); }
+      .dash { stroke-dasharray: 7 6; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1280" height="760"/>
+  <text class="title" x="48" y="52">AI Usage Billing Gateway 전체 아키텍처</text>
+  <text class="small" x="48" y="78">핵심 흐름과 검증 대상 경계를 설명하는 단순화된 구조도</text>
+
+  <rect class="group" x="32" y="112" width="420" height="520"/>
+  <text class="label" x="56" y="148">Gateway / Usage Flow</text>
+
+  <rect class="box external" x="72" y="186" width="150" height="64"/>
+  <text class="label" x="104" y="224">Client</text>
+
+  <rect class="box accent" x="264" y="186" width="150" height="64"/>
+  <text class="label" x="285" y="213">API Key</text>
+  <text class="label" x="308" y="235">Auth</text>
+
+  <rect class="box accent" x="72" y="292" width="150" height="64"/>
+  <text class="label" x="103" y="318">Gateway</text>
+  <text class="label" x="125" y="340">API</text>
+
+  <rect class="box accent" x="264" y="292" width="150" height="64"/>
+  <text class="label" x="285" y="319">Idempotency</text>
+  <text class="label" x="303" y="341">Service</text>
+
+  <rect class="box accent" x="72" y="398" width="150" height="64"/>
+  <text class="label" x="101" y="425">Redis Rate</text>
+  <text class="label" x="125" y="447">Limit</text>
+
+  <rect class="box accent" x="264" y="398" width="150" height="64"/>
+  <text class="label" x="290" y="425">Quota</text>
+  <text class="label" x="277" y="447">Reservation</text>
+
+  <rect class="box accent" x="156" y="506" width="174" height="64"/>
+  <text class="label" x="176" y="533">Usage Event</text>
+  <text class="label" x="207" y="555">Service</text>
+
+  <rect class="group" x="486" y="112" width="360" height="520"/>
+  <text class="label" x="510" y="148">Billing / Payment Flow</text>
+
+  <rect class="box accent" x="580" y="186" width="172" height="64"/>
+  <text class="label" x="599" y="213">Invoice</text>
+  <text class="label" x="587" y="235">Scheduler</text>
+
+  <rect class="box external" x="548" y="314" width="172" height="64"/>
+  <text class="label" x="576" y="341">Payment</text>
+  <text class="label" x="574" y="363">Provider</text>
+
+  <rect class="box accent" x="548" y="426" width="172" height="64"/>
+  <text class="label" x="574" y="453">Webhook</text>
+  <text class="label" x="574" y="475">Handler</text>
+
+  <rect class="box accent" x="636" y="538" width="172" height="64"/>
+  <text class="label" x="673" y="565">Ledger</text>
+  <text class="label" x="678" y="587">Service</text>
+
+  <rect class="group" x="880" y="112" width="368" height="520"/>
+  <text class="label" x="904" y="148">Persistence / Audit Boundary</text>
+
+  <rect class="box audit" x="930" y="186" width="236" height="64"/>
+  <text class="label" x="952" y="213">Audit Metadata</text>
+  <text class="label" x="971" y="235">Sanitizer</text>
+
+  <rect class="box audit" x="930" y="292" width="236" height="64"/>
+  <text class="label" x="1006" y="319">Audit</text>
+  <text class="label" x="1016" y="341">Log</text>
+
+  <rect class="box data" x="930" y="426" width="236" height="118"/>
+  <text class="label" x="986" y="461">PostgreSQL</text>
+  <text class="small" x="974" y="490">Usage / Invoice</text>
+  <text class="small" x="974" y="514">Ledger / Audit</text>
+
+  <path class="line" d="M222 218 H264"/>
+  <path class="line" d="M339 250 V292"/>
+  <path class="line" d="M264 324 H222"/>
+  <path class="line" d="M147 356 V398"/>
+  <path class="line" d="M222 430 H264"/>
+  <path class="line" d="M339 462 V506 H330"/>
+  <path class="line" d="M243 506 V462 H222"/>
+
+  <path class="line" d="M330 538 H580 V250"/>
+  <path class="line" d="M666 250 V314"/>
+  <path class="line" d="M720 346 H780 V458 H720"/>
+  <path class="line" d="M634 490 V570 H636"/>
+
+  <path class="line" d="M330 538 H930 V485"/>
+  <path class="line" d="M752 218 H930 V485"/>
+  <path class="line" d="M808 570 H930 V510"/>
+  <path class="line dash" d="M414 324 H930 V218"/>
+  <path class="line dash" d="M720 458 H930 V218"/>
+  <path class="line" d="M1048 250 V292"/>
+  <path class="line" d="M1048 356 V426"/>
+
+  <text class="tiny" x="75" y="272">X-API-Key + Idempotency-Key</text>
+  <text class="tiny" x="275" y="274">raw key 미저장</text>
+  <text class="tiny" x="271" y="380">duplicate / conflict 분리</text>
+  <text class="tiny" x="77" y="484">fail-closed 503</text>
+  <text class="tiny" x="274" y="484">월별 사용량 예약</text>
+  <text class="tiny" x="500" y="168">invoice, webhook, refund ledger</text>
+  <text class="tiny" x="910" y="168">secret hygiene and final data store</text>
+  <text class="tiny" x="878" y="405">Usage / Invoice / Ledger / Audit</text>
+  <text class="tiny" x="934" y="276">[REDACTED] metadata</text>
+  <text class="tiny" x="48" y="704">Claim boundary: 실제 AI provider, 실제 PG, production benchmark/SLO를 주장하지 않습니다.</text>
+</svg>
