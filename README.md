@@ -2,26 +2,63 @@
 
 ![CI](https://github.com/sjh9714/ai-usage-billing-gateway/actions/workflows/ci.yml/badge.svg)
 
-멀티테넌트 SaaS 환경에서 **API Key 인증, 사용량 수집, quota/rate limit, invoice 생성, payment webhook, append-only ledger, audit log**를 검증한 Spring Boot 백엔드 프로젝트입니다.
+멀티테넌트 SaaS에서 **AI/API gateway 사용량을 수집하고 과금 흐름으로 연결하는 Spring Boot 백엔드**입니다.
 
-이 프로젝트는 단순 결제 CRUD가 아니라, SaaS 과금 시스템에서 쉽게 깨질 수 있는 **tenant isolation, retry idempotency, webhook duplicate delivery, ledger consistency, audit secret hygiene**를 코드와 테스트로 검증하는 데 초점을 둡니다.
+단순 결제 CRUD가 아니라, SaaS 과금 시스템에서 깨지기 쉬운
+**API Key 보안, retry idempotency, quota reservation, webhook duplicate delivery,
+refund ledger, audit secret hygiene**를 코드와 테스트로 검증하는 데 초점을 둡니다.
+
+## 30초 요약
+
+- **API Key 보안**:
+  raw key는 생성 응답에서 1회만 반환하고 DB에는 `keyPrefix`와 hash만 저장합니다.
+  audit metadata에도 raw key가 남지 않도록 sanitizer를 둡니다.
+- **Usage/Gateway idempotency**:
+  `organizationId + Idempotency-Key` scope와 request hash로 duplicate/conflict를 구분합니다.
+- **Quota reservation**:
+  usage insert와 같은 transaction에서 `quota_counters` 월별 counter를 증가시킵니다.
+  FREE plan 같은 non-overage 경계의 동시 초과를 막는 시나리오를 검증했습니다.
+- **Invoice/Webhook/Refund ledger**:
+  invoice generation, payment webhook duplicate/conflict, captured amount 초과 refund 차단을 검증했습니다.
+  partial refund별 reversal ledger group과 append-only ledger invariant도 분리했습니다.
+- **Audit sanitizer**:
+  API key, authorization, token, secret, password, signature, cookie 계열 key를 `[REDACTED]` 처리합니다.
+- **Full mixed repeat3**:
+  local `5 VU`, `30s`, repeat3에서 gateway/usage/invoice/webhook branch가 모두 실행됐습니다.
+  checks `150/150` 및 HTTP failure `0/150`을 run별로 확인했습니다.
+
+> Claim boundary: 이 README는 실제 AI provider 연동, 실제 PG 연동,
+> production throughput/latency/error-rate benchmark 성능을 주장하지 않습니다.
+> full mixed repeat3는 local evidence이며, 운영 성능 수치는 `추가 측정 예정`으로 분리합니다.
 
 ---
 
 ## 핵심 문제
 
-| 문제 | 구현한 대응 |
+| 문제 | 설계 대응 | 검증 상태 |
+| --- | --- | --- |
+| 다른 organization의 billing/usage 데이터 접근 | organization membership 기반 `TenantAccessService`로 organization-scoped API 접근 제어 | 시나리오 검증 |
+| API Key 원문 저장 시 유출 위험 | raw key 1회 반환, DB에는 `keyPrefix`와 hash 저장 | 시나리오 검증 |
+| usage/gateway retry 중복 과금 | `organizationId + Idempotency-Key` unique scope와 request hash 비교 | 시나리오 검증 |
+| 같은 idempotency key의 다른 payload | 기존 request hash와 다르면 `409 Conflict` | 시나리오 검증 |
+| quota 초과 동시 요청 | usage insert와 같은 transaction에서 `quota_counters` 월별 reservation | 시나리오 검증 |
+| API key 단위 남용 | Redis fixed-window rate limit, Redis 장애 시 fail-closed `503` | 시나리오 검증 |
+| invoice generation 재실행 | `organizationId + billingPeriod` 기준 idempotent invoice generation | 시나리오 검증 |
+| payment webhook 중복 delivery | `providerEventId` reserve와 payload hash 비교로 duplicate/conflict 처리 | 시나리오 검증 |
+| refund가 captured amount를 초과할 위험 | captured balance 확인 후 partial refund별 append-only reversal ledger group 기록 | 시나리오 검증 |
+| 금액 상태를 status update만으로 설명하기 어려움 | invoice/payment/refund 흐름을 append-only ledger entry로 기록 | 시나리오 검증 |
+| audit log에 secret이 남을 위험 | secret 계열 metadata key를 저장 직전 `[REDACTED]` 처리 | 시나리오 검증 |
+| README가 구현보다 과장될 위험 | `측정 완료 / 시나리오 검증 / 추가 측정 예정`을 분리 | 계속 적용 |
+
+## 빠른 근거 링크
+
+| 보고 싶은 것 | 링크 |
 | --- | --- |
-| 다른 organization의 billing/usage 데이터에 접근할 수 있음 | organization membership 기반 `TenantAccessService`로 모든 organization-scoped API 접근 제어 |
-| API Key 원문이 DB에 저장되면 유출 시 즉시 악용 가능 | raw API key는 생성 시 1회만 반환하고, DB에는 `keyPrefix`와 hash만 저장 |
-| 사용량 이벤트와 gateway 호출이 재시도되면 중복 과금될 수 있음 | `organizationId + Idempotency-Key` unique scope와 request hash 비교 |
-| 같은 idempotency key로 다른 payload가 들어올 수 있음 | 기존 request hash와 다르면 `409 Conflict` |
-| invoice generation job이 두 번 실행될 수 있음 | `organizationId + billingPeriod` 기준 idempotent invoice generation |
-| payment webhook은 중복 delivery될 수 있음 | `providerEventId` reserve와 payload hash 비교로 duplicate/conflict 처리 |
-| 금액 상태를 status update만으로 설명하기 어려움 | invoice/payment 흐름을 append-only ledger entry로 기록 |
-| audit log에 secret이 남을 수 있음 | raw API key 대신 key prefix 등 안전한 metadata만 기록 |
-| API 남용을 막아야 함 | `quota_counters` 월별 counter 기반 quota reservation과 Redis fixed-window rate limit |
-| 문서가 실제 구현보다 과장될 수 있음 | `측정 완료 / 시나리오 검증 / 추가 측정 예정`을 분리해 보수적으로 문서화 |
+| 설계 상세 | [docs/DESIGN.md](docs/DESIGN.md) |
+| 테스트가 지지하는 claim | [docs/TESTING.md](docs/TESTING.md) |
+| 성능/부하 해석 기준 | [docs/PERF_RESULT.md](docs/PERF_RESULT.md) |
+| full mixed repeat3 evidence | [repeat3 문서][full-mixed-repeat3] |
+| 아직 주장하지 않는 것 | [docs/LIMITATIONS.md](docs/LIMITATIONS.md) |
 
 ---
 
@@ -55,6 +92,8 @@ Payment Provider Mock
 ---
 
 ## 주요 흐름
+
+[full-mixed-repeat3]: docs/evidence/FULL_MIXED_REPEAT3_2026-05-23.md
 
 ### 1. API Key 발급과 Gateway 호출
 
