@@ -1,9 +1,9 @@
 
-         /\      Grafana   /‾‾/  
-    /\  /  \     |\  __   /  /   
-   /  \/    \    | |/ /  /   ‾‾\ 
+         /\      Grafana   /‾‾/
+    /\  /  \     |\  __   /  /
+   /  \/    \    | |/ /  /   ‾‾\
   /          \   |   (  |  (‾)  |
- / __________ \  |_|\_\  \_____/ 
+ / __________ \  |_|\_\  \_____/
 
      execution: local
         script: k6/mixed-usage-test.js
@@ -104,7 +104,7 @@ running (0m30.0s), 5/5 VUs, 145 complete and 0 interrupted iterations
 default   [ 100% ] 5 VUs  30.0s/30s
 
 
-  █ THRESHOLDS 
+  █ THRESHOLDS
 
     checks
     ✓ 'rate==1' rate=100.00%
@@ -128,7 +128,7 @@ default   [ 100% ] 5 VUs  30.0s/30s
     ✓ 'count>0' count=6
 
 
-  █ TOTAL RESULTS 
+  █ TOTAL RESULTS
 
     checks_total.......: 150     4.925465/s
     checks_succeeded...: 100.00% 150 out of 150
@@ -153,7 +153,7 @@ default   [ 100% ] 5 VUs  30.0s/30s
     http_reqs......................: 150   4.925465/s
 
     EXECUTION
-    iteration_duration.............: avg=1.01s  min=1s    med=1.01s   max=1.02s   p(90)=1.01s  p(95)=1.02s  
+    iteration_duration.............: avg=1.01s  min=1s    med=1.01s   max=1.02s   p(90)=1.01s  p(95)=1.02s
     iterations.....................: 150   4.925465/s
     vus............................: 5     min=5        max=5
     vus_max........................: 5     min=5        max=5

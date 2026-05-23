@@ -1,4 +1,4 @@
 Prometheus sample unavailable.
 URL: http://localhost:8080/actuator/prometheus
 Reason: curl failed; the local actuator endpoint may require authentication or network access not used by this evidence run.
-curl stderr: curl: (22) The requested URL returned error: 401 
+curl stderr: curl: (22) The requested URL returned error: 401

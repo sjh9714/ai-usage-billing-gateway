@@ -16,6 +16,10 @@ require_env() {
   fi
 }
 
+strip_trailing_whitespace() {
+  perl -0pi -e 's/[ \t]+(\r?\n)/$1/g; s/[ \t]+\z//' "$1"
+}
+
 capture_prometheus() {
   local output_path="$1"
   local unavailable_path="${output_path%.prom}.unavailable.txt"
@@ -32,9 +36,10 @@ capture_prometheus() {
 Prometheus sample unavailable.
 URL: ${PROMETHEUS_URL}
 Reason: curl failed; the local actuator endpoint may require authentication or network access not used by this evidence run.
-curl stderr: $(tr '\n' ' ' <"$error_path")
+curl stderr: $(tr '\n' ' ' <"$error_path" | sed 's/[[:space:]]*$//')
 EOF
   rm -f "$error_path"
+  strip_trailing_whitespace "$unavailable_path"
 }
 
 require_command curl
@@ -121,6 +126,7 @@ for run in $(seq 1 "$K6_RUNS"); do
       --summary-export "${run_dir}/summary.json" \
       k6/mixed-usage-test.js \
       >"${run_dir}/console.txt" 2>&1
+  strip_trailing_whitespace "${run_dir}/console.txt"
 
   capture_prometheus "${run_dir}/prometheus-after.prom"
 
