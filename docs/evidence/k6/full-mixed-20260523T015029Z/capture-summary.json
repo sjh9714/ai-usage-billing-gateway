@@ -1,0 +1,41 @@
+{
+  "claimStatus": "scenario-validation-not-benchmark",
+  "interpretation": "Repeated full mixed smoke capture metadata. This rollup checks scenario guard conditions only and does not publish throughput, latency, or error-rate benchmark aggregates.",
+  "runCount": 3,
+  "metadataPath": "metadata.txt",
+  "runs": [
+    {
+      "run": "run-1",
+      "summaryPath": "run-1/summary.json",
+      "valid": true,
+      "failures": [],
+      "checksRate": 1,
+      "httpFailedRate": 0,
+      "invoicePathCount": 6,
+      "webhookPathCount": 6,
+      "skippedOptionalPathCount": 0
+    },
+    {
+      "run": "run-2",
+      "summaryPath": "run-2/summary.json",
+      "valid": true,
+      "failures": [],
+      "checksRate": 1,
+      "httpFailedRate": 0,
+      "invoicePathCount": 6,
+      "webhookPathCount": 6,
+      "skippedOptionalPathCount": 0
+    },
+    {
+      "run": "run-3",
+      "summaryPath": "run-3/summary.json",
+      "valid": true,
+      "failures": [],
+      "checksRate": 1,
+      "httpFailedRate": 0,
+      "invoicePathCount": 6,
+      "webhookPathCount": 6,
+      "skippedOptionalPathCount": 0
+    }
+  ]
+}

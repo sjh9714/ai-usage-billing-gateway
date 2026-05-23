@@ -2,7 +2,39 @@
 
 ## 공개 부하 테스트 결과
 
-현재 공개 가능한 throughput / latency / error-rate 측정 완료 수치는 없습니다.
+현재 공개 가능한 production throughput / latency / error-rate 측정 완료 수치는 없습니다.
+아래 full mixed repeat3는 local 환경에서 branch mix와 HTTP 결과를 확인한 측정 evidence이며, 운영 성능 주장으로
+사용하지 않습니다.
+
+## Full Mixed Local Repeat3 Evidence
+
+```bash
+BASE_URL=http://localhost:8080 \
+API_KEY=<rawApiKey> \
+JWT_TOKEN=<accessToken> \
+ORG_ID=<organizationId> \
+WEBHOOK_INVOICE_ID=<invoiceId> \
+WEBHOOK_SECRET=<webhookSecret> \
+WEBHOOK_AMOUNT_MINOR=<invoiceTotalAmountMinor> \
+INVOICE_PERIOD=2026-05 \
+K6_RUNS=3 \
+K6_VUS=5 \
+K6_DURATION=30s \
+scripts/run-full-mixed-evidence.sh
+```
+
+| Run | HTTP requests | RPS | HTTP p95 | Checks | HTTP failed | gateway | usage | invoice | webhook | optional skipped |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| run-1 | 150 | 4.8567 | 44.1454ms | 150/150 | 0/150 | 107 | 31 | 6 | 6 | 0 |
+| run-2 | 150 | 4.9255 | 19.8888ms | 150/150 | 0/150 | 107 | 31 | 6 | 6 | 0 |
+| run-3 | 150 | 4.9329 | 18.5976ms | 150/150 | 0/150 | 107 | 31 | 6 | 6 | 0 |
+
+- Artifact: `docs/evidence/k6/full-mixed-20260523T015029Z/`
+- Summary: `docs/evidence/FULL_MIXED_REPEAT3_2026-05-23.md`
+- Prometheus scrape는 best-effort입니다. local `/actuator/prometheus`는 인증 정책으로 `401`을 반환해
+  unavailable note를 artifact에 남겼습니다.
+- webhook branch는 같은 invoice + 같은 `providerEventId`를 재사용하므로 fresh payment throughput이 아니라
+  duplicate delivery / idempotency path로 해석합니다.
 
 ## 시나리오 검증
 
@@ -23,7 +55,7 @@
 - webhook branch는 같은 invoice에 대해 같은 `providerEventId`를 재사용해 duplicate delivery 입력을 확인합니다.
   `WEBHOOK_AMOUNT_MINOR`는 대상 invoice의 `totalAmountMinor`와 일치해야 하며, 이 branch는 fresh payment
   throughput이 아니라 duplicate/idempotency smoke로만 해석합니다.
-- 반복 가능한 full mixed benchmark 결과는 아직 추가 측정 예정입니다.
+- local full mixed repeat3 측정은 2026-05-23 artifact로 기록했습니다. production benchmark는 아직 주장하지 않습니다.
 - 통합 테스트로 security, idempotency, invoice, webhook, ledger, audit 동작의 기능 정합성을 검증합니다.
 
 ## Local Smoke Evidence
@@ -94,10 +126,9 @@ raw artifact:
 - `docs/evidence/k6/mixed-usage-full-20260522081328-summary.json`
 - `docs/evidence/k6/mixed-usage-full-20260522081328-console.txt`
 
-## 반복 benchmark protocol 초안
+## 반복 benchmark protocol
 
-아직 공개 가능한 throughput / latency / error-rate 측정 완료 수치는 없습니다. 아래 protocol은 결과가 아니라,
-이후 같은 조건으로 반복 실행하기 위한 측정 절차입니다.
+local repeat3 artifact는 생성됐지만, production benchmark로 승격하려면 아래 조건을 더 고정해야 합니다.
 
 - k6 실행 전 signup, organization creation, API key creation 흐름으로 실제 local `rawApiKey`를 생성합니다.
 - 대상 script는 `k6/mixed-usage-test.js`이며, branch mix는 gateway 70%, direct usage ingestion 20%,
@@ -106,9 +137,9 @@ raw artifact:
 - 더 큰 부하를 줄 때는 `GATEWAY_RATE_LIMIT_PER_MINUTE=1000`처럼 gateway rate limit을 테스트 조건에
   맞춰 올린 뒤 `BASE_URL=http://localhost:8080 API_KEY=<rawApiKey> K6_VUS=5 K6_DURATION=30s k6 run
   k6/mixed-usage-test.js`를 실행합니다.
-- invoice/webhook branch까지 포함한 smoke는 실행했지만, benchmark로 공개하려면 `JWT_TOKEN`, `ORG_ID`,
-  `WEBHOOK_INVOICE_ID`, `WEBHOOK_SECRET`, `WEBHOOK_AMOUNT_MINOR`, `K6_REQUIRE_OPTIONAL_PATHS=true`와 함께
-  반복 가능한 조건을 고정해야 합니다.
+- invoice/webhook branch까지 포함한 repeat3는 실행했지만, production benchmark로 공개하려면 `JWT_TOKEN`,
+  `ORG_ID`, `WEBHOOK_INVOICE_ID`, `WEBHOOK_SECRET`, `WEBHOOK_AMOUNT_MINOR`, `K6_REQUIRE_OPTIONAL_PATHS=true`와
+  함께 실행 환경과 데이터셋 조건을 더 고정해야 합니다.
 - required guard는 `checks == 100%`, `http_req_failed == 0`, `invoice_path_count > 0`,
   `webhook_path_count > 0`, `skipped_optional_path_count == 0`입니다.
 - 기록할 환경은 hardware, OS, JVM, PostgreSQL, Redis, Spring profile/config, dataset size, rate-limit 설정,
@@ -123,7 +154,7 @@ raw artifact:
 - 같은 디렉터리의 `capture-summary.json`은 `scripts/summarize-full-mixed-evidence.mjs`가 만드는
   readiness metadata입니다. run별 summary path와 guard 통과 여부만 묶으며 throughput/latency/error-rate
   benchmark aggregate를 만들지 않습니다.
-- capture script가 만든 artifact도 review 전에는 public throughput/latency/error-rate benchmark로 승격하지
-  않습니다.
+- capture script가 만든 artifact는 review 후 local repeat3 측정 evidence로 기록합니다. production
+  throughput/latency/error-rate benchmark로는 승격하지 않습니다.
 
 합성 수치나 추정 benchmark 수치는 추가하지 않습니다.

@@ -20,9 +20,10 @@ import {
 } from "./validate-k6-full-mixed-summary.mjs";
 
 const goodSummaryPath =
-  "docs/evidence/k6/mixed-usage-full-20260522081328-summary.json";
+  "docs/evidence/k6/full-mixed-20260523T015029Z/run-1/summary.json";
 const badSummaryPath =
   "docs/evidence/k6/mixed-usage-full-20260522080203-summary.json";
+const repeatCaptureDir = "docs/evidence/k6/full-mixed-20260523T015029Z";
 
 function tempEvidenceDir() {
   return mkdtempSync(join(tmpdir(), "ai-billing-k6-evidence-"));
@@ -81,6 +82,23 @@ describe("full mixed evidence tools", () => {
       }
     } finally {
       rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+
+  it("accepts the current repeat3 capture directory", () => {
+    const captureSummary = buildCaptureSummary(repeatCaptureDir);
+
+    assert.equal(captureSummary.runCount, 3);
+    assert.deepEqual(
+      captureSummary.runs.map((run) => run.valid),
+      [true, true, true],
+    );
+    for (const run of captureSummary.runs) {
+      assert.equal(run.checksRate, 1);
+      assert.equal(run.httpFailedRate, 0);
+      assert.equal(run.invoicePathCount, 6);
+      assert.equal(run.webhookPathCount, 6);
+      assert.equal(run.skippedOptionalPathCount, 0);
     }
   });
 

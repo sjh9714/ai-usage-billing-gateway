@@ -21,6 +21,7 @@
 | full mixed evidence capture syntax | `bash -n scripts/run-full-mixed-evidence.sh` | 반복 full mixed artifact 수집 스크립트의 shell syntax |
 | full mixed summary validator | `node scripts/validate-k6-full-mixed-summary.mjs docs/evidence/k6/mixed-usage-full-20260522081328-summary.json`, superseded diagnostic artifact reject check | k6 summary-export의 `value/count` metric shape에서 checks 100%, HTTP failure 0, invoice/webhook branch 실행, optional skip 0 검증 |
 | full mixed capture rollup | `node scripts/test-k6-evidence-tools.mjs` | `full-mixed-<timestamp>/run-N/summary.json` 반복 capture를 `capture-summary.json` readiness metadata로 묶고, 실패/누락 summary를 거부 |
+| full mixed local repeat3 | `docs/evidence/k6/full-mixed-20260523T015029Z/` | 5 VU, 30s, repeat3에서 checks 150/150/run, HTTP failure 0/150/run, optional skip 0 확인 |
 | k6 local smoke path counters | `k6 run k6/mixed-usage-test.js` | gateway/usage path가 실제 smoke 실행에서 모두 1회 이상 실행되는지 counter로 확인 |
 
 ## 아직 검증하지 않는 범위
@@ -28,8 +29,8 @@
 | 범위 | 현재 상태 |
 | --- | --- |
 | gateway + usage throughput / latency | local smoke 결과는 있으나 benchmark claim은 하지 않음 |
-| invoice/webhook branch throughput / latency | full mixed 5 VU local smoke에서 branch 실행과 checks 150/150 확인, benchmark claim은 하지 않음 |
-| full mixed benchmark 결과 | 반복 가능한 benchmark는 추가 측정 예정 |
+| invoice/webhook branch throughput / latency | full mixed local repeat3에서 branch 실행과 checks 150/150/run 확인, production benchmark claim은 하지 않음 |
+| full mixed production benchmark 결과 | 추가 측정 예정 |
 | production scheduler operations | distributed lock, partitioned batch, persistent retry table 미구현 |
 | quota reconciliation / operations | `quota_counters` 월별 reservation과 UTC period 경계는 `ApiKeyUsageQuotaIT`에서 검증했지만, 운영용 reconciliation job, dashboard, alert rule은 아직 claim하지 않음 |
 | refund accounting compliance | captured payment amount 초과, partial refund reversal group, 병렬 refund 초과, reversal ledger와 original group 추적은 검증, 실제 회계 compliance는 주장하지 않음 |
@@ -53,6 +54,6 @@ k6 inspect -e K6_REQUIRE_OPTIONAL_PATHS=true k6/mixed-usage-test.js
 
 ## 해석 원칙
 
-- throughput/latency/error rate는 local smoke refresh와 반복 가능한 benchmark를 분리합니다.
+- throughput/latency/error rate는 local repeat3 artifact와 production benchmark claim을 분리합니다.
 - ledger는 append-only invariant를 보여주는 포트폴리오 모델이며 accounting compliance claim이 아닙니다.
 - quota는 gateway mock completion과 explicit usage ingestion의 usage insert + `quota_counters` reservation 범위로 설명합니다.

@@ -107,9 +107,8 @@ usage event를 저장한 뒤 같은 transaction 안에서 `quota_counters`의 UT
 
 ## 6. k6 Mixed Usage Benchmark
 
-`k6/mixed-usage-test.js`는 있지만 benchmark 결과는 아직 추가 측정 예정입니다.
-현재 문서는 smoke 실행과 benchmark protocol 준비 절차이며, 반복 실행 artifact가 생기기 전까지
-throughput/latency/error-rate 결과로 해석하지 않습니다.
+`k6/mixed-usage-test.js`와 `scripts/run-full-mixed-evidence.sh`로 local full mixed repeat3 evidence를
+수집했습니다. 이 문서는 재현 절차이며, production throughput/latency/error-rate claim으로 해석하지 않습니다.
 
 실제 실행 전 준비:
 
@@ -154,8 +153,8 @@ k6 run k6/mixed-usage-test.js
 ```
 
 반복 evidence capture를 남길 때는 아래 스크립트를 사용합니다. 이 스크립트는 `K6_REQUIRE_OPTIONAL_PATHS=true`를
-강제하고, run마다 k6 summary/console과 `/actuator/prometheus` before/after scrape를
-`docs/evidence/k6/full-mixed-<timestamp>/` 아래에 저장합니다.
+강제하고, run마다 k6 summary/console, 접근 가능한 경우 `/actuator/prometheus` before/after scrape,
+sanitized metadata를 `docs/evidence/k6/full-mixed-<timestamp>/` 아래에 저장합니다.
 
 ```bash
 BASE_URL=http://localhost:8080 \
@@ -177,7 +176,7 @@ scripts/run-full-mixed-evidence.sh
 - HTTP failure rate 0
 - invoice / webhook branch count 1회 이상
 - optional branch skip 0건
-- Prometheus scrape before/after 저장 가능
+- Prometheus scrape는 best-effort. endpoint가 인증에 막히면 unavailable note를 남기고 k6 검증은 계속 진행
 
 summary guard는 `scripts/validate-k6-full-mixed-summary.mjs`가 검사합니다. 이 validator는 k6
 `--summary-export` artifact의 `value/count` metric shape를 기준으로 성공/실패를 판단합니다.
