@@ -16,6 +16,27 @@ require_env() {
   fi
 }
 
+capture_prometheus() {
+  local output_path="$1"
+  local unavailable_path="${output_path%.prom}.unavailable.txt"
+  local error_path="${unavailable_path}.tmp"
+
+  if curl -fsS "$PROMETHEUS_URL" >"$output_path" 2>"$error_path"; then
+    rm -f "$error_path"
+    rm -f "$unavailable_path"
+    return
+  fi
+
+  rm -f "$output_path"
+  cat >"$unavailable_path" <<EOF
+Prometheus sample unavailable.
+URL: ${PROMETHEUS_URL}
+Reason: curl failed; the local actuator endpoint may require authentication or network access not used by this evidence run.
+curl stderr: $(tr '\n' ' ' <"$error_path")
+EOF
+  rm -f "$error_path"
+}
+
 require_command curl
 require_command git
 require_command k6
@@ -64,6 +85,7 @@ K6_RUNS=${K6_RUNS}
 K6_VUS=${K6_VUS}
 K6_DURATION=${K6_DURATION}
 K6_REQUIRE_OPTIONAL_PATHS=true
+PROMETHEUS_CAPTURE=best-effort
 ORG_ID=${ORG_ID}
 WEBHOOK_INVOICE_ID=${WEBHOOK_INVOICE_ID}
 WEBHOOK_AMOUNT_MINOR=${WEBHOOK_AMOUNT_MINOR}
@@ -82,7 +104,7 @@ for run in $(seq 1 "$K6_RUNS"); do
   mkdir -p "$run_dir"
 
   echo "== full mixed evidence run ${run}/${K6_RUNS} =="
-  curl -fsS "$PROMETHEUS_URL" >"${run_dir}/prometheus-before.prom"
+  capture_prometheus "${run_dir}/prometheus-before.prom"
 
   BASE_URL="$BASE_URL" \
     API_KEY="$API_KEY" \
@@ -100,7 +122,7 @@ for run in $(seq 1 "$K6_RUNS"); do
       k6/mixed-usage-test.js \
       >"${run_dir}/console.txt" 2>&1
 
-  curl -fsS "$PROMETHEUS_URL" >"${run_dir}/prometheus-after.prom"
+  capture_prometheus "${run_dir}/prometheus-after.prom"
 
   node scripts/validate-k6-full-mixed-summary.mjs "${run_dir}/summary.json"
 done
@@ -115,7 +137,7 @@ This directory was produced by \`scripts/run-full-mixed-evidence.sh\`.
 It captures repeated local full mixed smoke artifacts for:
 
 - k6 summary and console output
-- Prometheus samples before and after each run
+- Prometheus samples before and after each run when the endpoint is accessible
 - sanitized command/environment metadata
 - \`capture-summary.json\` scenario-validation rollup
 
