@@ -60,6 +60,40 @@ jobs:
 
           print(f"OK: checked {len(targets)} files")
           PY
+      - name: Documentation architecture guard
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          readme = Path("README.md").read_text(encoding="utf-8")
+          required = [
+              "## 전체 아키텍처",
+              "![AI Usage Billing Gateway 전체 아키텍처](docs/assets/architecture/overall-architecture.svg)",
+              "이 다이어그램은 구현된 핵심 흐름과 검증 대상 경계를 설명하기 위한 단순화된 구조도이며, 운영 배포 토폴로지나 production SLO를 주장하지 않습니다.",
+          ]
+
+          missing = [item for item in required if item not in readme]
+          asset_dir = Path("docs/assets/architecture")
+          raster_assets = [
+              path
+              for path in asset_dir.rglob("*")
+              if path.is_file()
+              and path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}
+          ]
+
+          if missing or raster_assets:
+              if missing:
+                  print("Missing README architecture requirements:")
+                  for item in missing:
+                      print(f"- {item}")
+              if raster_assets:
+                  print("Raster architecture assets are not allowed:")
+                  for path in raster_assets:
+                      print(f"- {path}")
+              raise SystemExit(1)
+
+          print("OK: README architecture section and architecture assets checked")
+          PY
       - name: Test
         run: ./gradlew test --no-daemon
       - name: Build
