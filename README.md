@@ -47,7 +47,8 @@ refund ledger, audit secret hygiene**를 코드와 테스트로 검증하는 데
 | invoice/webhook/ledger 경계 분리 | invoice 생성, provider webhook, append-only ledger를 각각 재시도 가능한 경계로 둡니다. | 시나리오 검증 |
 | audit metadata sanitizer | secret 계열 key가 audit log에 남지 않도록 저장 직전에 redaction합니다. | 시나리오 검증 |
 
-상세 설명과 편집 가능한 원본은 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)와 [overall-architecture.drawio](docs/assets/architecture/overall-architecture.drawio)에 있습니다.
+상세 설명은 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)에 있습니다.
+README에는 `overall-architecture.svg`를 기준으로 노출하고, drawio 파일은 편집 참고 자산으로 보관합니다.
 
 ---
 

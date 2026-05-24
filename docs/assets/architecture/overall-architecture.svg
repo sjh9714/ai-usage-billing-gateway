@@ -1,125 +1,119 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760" role="img" aria-labelledby="title desc">
   <title id="title">AI Usage Billing Gateway overall architecture</title>
-  <desc id="desc">Simplified architecture diagram for API key auth, gateway idempotency, quota reservation, invoice, webhook, ledger, audit, and PostgreSQL persistence.</desc>
+  <desc id="desc">Simplified README architecture for API key hash authentication, gateway idempotency, quota reservation, usage/invoice, webhook, append-only ledger, sanitized audit, and PostgreSQL persistence.</desc>
   <defs>
     <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
       <path d="M2 2 L10 6 L2 10 Z" fill="#1f2937"/>
     </marker>
+    <marker id="async-arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2 2 L10 6 L2 10 Z" fill="#ea580c"/>
+    </marker>
     <style>
       .bg { fill: #f8fafc; }
-      .group { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 18; }
-      .box { fill: #ffffff; stroke: #334155; stroke-width: 2; rx: 10; }
+      .group { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; }
+      .box { fill: #ffffff; stroke: #334155; stroke-width: 2; }
       .accent { fill: #eff6ff; stroke: #2563eb; }
       .data { fill: #f0fdf4; stroke: #16a34a; }
       .external { fill: #fff7ed; stroke: #ea580c; }
       .audit { fill: #fdf2f8; stroke: #db2777; }
+      .line { stroke: #1f2937; stroke-width: 2.2; fill: none; marker-end: url(#arrow); }
+      .async { stroke: #ea580c; stroke-width: 2.2; fill: none; stroke-dasharray: 7 5; marker-end: url(#async-arrow); }
       .label { font-family: Arial, Helvetica, sans-serif; font-size: 18px; fill: #0f172a; font-weight: 700; }
       .small { font-family: Arial, Helvetica, sans-serif; font-size: 14px; fill: #334155; }
       .tiny { font-family: Arial, Helvetica, sans-serif; font-size: 12px; fill: #475569; }
+      .labelBg { fill: #ffffff; }
       .title { font-family: Arial, Helvetica, sans-serif; font-size: 26px; fill: #0f172a; font-weight: 700; }
-      .line { stroke: #1f2937; stroke-width: 2.2; fill: none; marker-end: url(#arrow); }
-      .dash { stroke-dasharray: 7 6; }
     </style>
   </defs>
 
   <rect class="bg" x="0" y="0" width="1280" height="760"/>
   <text class="title" x="48" y="52">AI Usage Billing Gateway 전체 아키텍처</text>
-  <text class="small" x="48" y="78">핵심 흐름과 검증 대상 경계를 설명하는 단순화된 구조도</text>
+  <text class="small" x="48" y="78">API Key hash, usage idempotency, quota reservation, invoice/webhook/ledger/audit 검증 경계를 보여주는 단순화된 구조도</text>
 
-  <rect class="group" x="32" y="112" width="420" height="520"/>
-  <text class="label" x="56" y="148">Gateway / Usage Flow</text>
+  <rect class="group" x="36" y="116" width="420" height="500" rx="18"/>
+  <text class="label" x="64" y="154">Gateway / Usage Boundary</text>
 
-  <rect class="box external" x="72" y="186" width="150" height="64"/>
-  <text class="label" x="104" y="224">Client</text>
+  <rect class="group" x="492" y="116" width="360" height="500" rx="18"/>
+  <text class="label" x="520" y="154">Billing / Payment Boundary</text>
 
-  <rect class="box accent" x="264" y="186" width="150" height="64"/>
-  <text class="label" x="285" y="213">API Key</text>
-  <text class="label" x="308" y="235">Auth</text>
+  <rect class="group" x="888" y="116" width="356" height="500" rx="18"/>
+  <text class="label" x="916" y="154">Persistence / Audit Boundary</text>
 
-  <rect class="box accent" x="72" y="292" width="150" height="64"/>
-  <text class="label" x="103" y="318">Gateway</text>
-  <text class="label" x="125" y="340">API</text>
+  <rect class="box external" x="72" y="210" width="144" height="62" rx="10"/>
+  <text class="label" x="144" y="248" text-anchor="middle">Client</text>
 
-  <rect class="box accent" x="264" y="292" width="150" height="64"/>
-  <text class="label" x="285" y="319">Idempotency</text>
-  <text class="label" x="303" y="341">Service</text>
+  <rect class="box accent" x="264" y="210" width="150" height="62" rx="10"/>
+  <text class="label" x="339" y="236" text-anchor="middle">API Key</text>
+  <text class="label" x="339" y="258" text-anchor="middle">Auth</text>
 
-  <rect class="box accent" x="72" y="398" width="150" height="64"/>
-  <text class="label" x="101" y="425">Redis Rate</text>
-  <text class="label" x="125" y="447">Limit</text>
+  <rect class="box accent" x="72" y="330" width="150" height="70" rx="10"/>
+  <text class="label" x="147" y="360" text-anchor="middle">Gateway API</text>
+  <text class="small" x="147" y="382" text-anchor="middle">retry idempotency</text>
 
-  <rect class="box accent" x="264" y="398" width="150" height="64"/>
-  <text class="label" x="290" y="425">Quota</text>
-  <text class="label" x="277" y="447">Reservation</text>
+  <rect class="box accent" x="264" y="330" width="150" height="70" rx="10"/>
+  <text class="label" x="339" y="360" text-anchor="middle">Quota</text>
+  <text class="label" x="339" y="382" text-anchor="middle">Reservation</text>
 
-  <rect class="box accent" x="156" y="506" width="174" height="64"/>
-  <text class="label" x="176" y="533">Usage Event</text>
-  <text class="label" x="207" y="555">Service</text>
+  <rect class="box accent" x="72" y="454" width="150" height="66" rx="10"/>
+  <text class="label" x="147" y="480" text-anchor="middle">Redis</text>
+  <text class="small" x="147" y="502" text-anchor="middle">rate limit fail-closed</text>
 
-  <rect class="group" x="486" y="112" width="360" height="520"/>
-  <text class="label" x="510" y="148">Billing / Payment Flow</text>
+  <rect class="box accent" x="264" y="454" width="150" height="66" rx="10"/>
+  <text class="label" x="339" y="480" text-anchor="middle">Usage Event</text>
+  <text class="small" x="339" y="502" text-anchor="middle">usage insert</text>
 
-  <rect class="box accent" x="580" y="186" width="172" height="64"/>
-  <text class="label" x="599" y="213">Invoice</text>
-  <text class="label" x="587" y="235">Scheduler</text>
+  <rect class="box accent" x="586" y="210" width="172" height="70" rx="10"/>
+  <text class="label" x="672" y="240" text-anchor="middle">Invoice</text>
+  <text class="label" x="672" y="262" text-anchor="middle">Scheduler</text>
 
-  <rect class="box external" x="548" y="314" width="172" height="64"/>
-  <text class="label" x="576" y="341">Payment</text>
-  <text class="label" x="574" y="363">Provider</text>
+  <rect class="box external" x="546" y="334" width="172" height="70" rx="10"/>
+  <text class="label" x="632" y="364" text-anchor="middle">Payment Mock</text>
+  <text class="small" x="632" y="386" text-anchor="middle">webhook delivery</text>
 
-  <rect class="box accent" x="548" y="426" width="172" height="64"/>
-  <text class="label" x="574" y="453">Webhook</text>
-  <text class="label" x="574" y="475">Handler</text>
+  <rect class="box accent" x="546" y="466" width="172" height="70" rx="10"/>
+  <text class="label" x="632" y="496" text-anchor="middle">Webhook</text>
+  <text class="small" x="632" y="518" text-anchor="middle">duplicate / conflict</text>
 
-  <rect class="box accent" x="636" y="538" width="172" height="64"/>
-  <text class="label" x="673" y="565">Ledger</text>
-  <text class="label" x="678" y="587">Service</text>
+  <rect class="box accent" x="706" y="574" width="130" height="58" rx="10"/>
+  <text class="label" x="771" y="598" text-anchor="middle">Ledger</text>
+  <text class="small" x="771" y="618" text-anchor="middle">append-only</text>
 
-  <rect class="group" x="880" y="112" width="368" height="520"/>
-  <text class="label" x="904" y="148">Persistence / Audit Boundary</text>
+  <rect class="box audit" x="940" y="202" width="220" height="70" rx="10"/>
+  <text class="label" x="1050" y="232" text-anchor="middle">Audit Sanitizer</text>
+  <text class="small" x="1050" y="254" text-anchor="middle">secret metadata redaction</text>
 
-  <rect class="box audit" x="930" y="186" width="236" height="64"/>
-  <text class="label" x="952" y="213">Audit Metadata</text>
-  <text class="label" x="971" y="235">Sanitizer</text>
+  <rect class="box audit" x="940" y="330" width="220" height="70" rx="10"/>
+  <text class="label" x="1050" y="360" text-anchor="middle">Audit Log</text>
+  <text class="small" x="1050" y="382" text-anchor="middle">sanitized metadata</text>
 
-  <rect class="box audit" x="930" y="292" width="236" height="64"/>
-  <text class="label" x="1006" y="319">Audit</text>
-  <text class="label" x="1016" y="341">Log</text>
+  <rect class="box data" x="940" y="474" width="220" height="100" rx="10"/>
+  <text class="label" x="1050" y="510" text-anchor="middle">PostgreSQL</text>
+  <text class="small" x="1050" y="536" text-anchor="middle">Usage / Invoice</text>
+  <text class="small" x="1050" y="558" text-anchor="middle">Ledger / Audit</text>
 
-  <rect class="box data" x="930" y="426" width="236" height="118"/>
-  <text class="label" x="986" y="461">PostgreSQL</text>
-  <text class="small" x="974" y="490">Usage / Invoice</text>
-  <text class="small" x="974" y="514">Ledger / Audit</text>
+  <path class="line" d="M216 241 H264"/>
+  <text class="tiny" x="86" y="296">X-API-Key + Idempotency-Key</text>
+  <path class="line" d="M339 272 V330"/>
+  <text class="tiny" x="354" y="304">raw key 미저장</text>
+  <path class="line" d="M264 365 H222"/>
+  <path class="line" d="M147 400 V454"/>
+  <text class="tiny" x="86" y="532">rate limiter 장애 시 fail-closed</text>
+  <path class="line" d="M222 487 H264"/>
+  <path class="line" d="M339 400 V454"/>
+  <rect class="labelBg" x="274" y="408" width="106" height="22" rx="4"/>
+  <text class="tiny" x="284" y="424">월별 사용량 예약</text>
+  <path class="line" d="M414 487 H470 V245 H586"/>
+  <text class="tiny" x="430" y="228">usage 집계</text>
+  <path class="async" d="M672 280 V334"/>
+  <path class="async" d="M632 404 V466"/>
+  <path class="line" d="M718 501 H760 V574"/>
+  <path class="line" d="M836 603 H900 V524 H940"/>
+  <path class="line" d="M758 245 H900 V237 H940"/>
+  <path class="line" d="M1050 272 V330"/>
+  <path class="line" d="M1050 400 V474"/>
+  <path class="line" d="M414 487 H470 V640 H1050 V574"/>
+  <path class="async" d="M718 501 H900 V365 H940"/>
 
-  <path class="line" d="M222 218 H264"/>
-  <path class="line" d="M339 250 V292"/>
-  <path class="line" d="M264 324 H222"/>
-  <path class="line" d="M147 356 V398"/>
-  <path class="line" d="M222 430 H264"/>
-  <path class="line" d="M339 462 V506 H330"/>
-  <path class="line" d="M243 506 V462 H222"/>
-
-  <path class="line" d="M330 538 H580 V250"/>
-  <path class="line" d="M666 250 V314"/>
-  <path class="line" d="M720 346 H780 V458 H720"/>
-  <path class="line" d="M634 490 V570 H636"/>
-
-  <path class="line" d="M330 538 H930 V485"/>
-  <path class="line" d="M752 218 H930 V485"/>
-  <path class="line" d="M808 570 H930 V510"/>
-  <path class="line dash" d="M414 324 H930 V218"/>
-  <path class="line dash" d="M720 458 H930 V218"/>
-  <path class="line" d="M1048 250 V292"/>
-  <path class="line" d="M1048 356 V426"/>
-
-  <text class="tiny" x="75" y="272">X-API-Key + Idempotency-Key</text>
-  <text class="tiny" x="275" y="274">raw key 미저장</text>
-  <text class="tiny" x="271" y="380">duplicate / conflict 분리</text>
-  <text class="tiny" x="77" y="484">fail-closed 503</text>
-  <text class="tiny" x="274" y="484">월별 사용량 예약</text>
-  <text class="tiny" x="500" y="168">invoice, webhook, refund ledger</text>
-  <text class="tiny" x="910" y="168">secret hygiene and final data store</text>
-  <text class="tiny" x="878" y="405">Usage / Invoice / Ledger / Audit</text>
-  <text class="tiny" x="934" y="276">[REDACTED] metadata</text>
-  <text class="tiny" x="48" y="704">Claim boundary: 실제 AI provider, 실제 PG, production benchmark/SLO를 주장하지 않습니다.</text>
+  <text class="small" x="48" y="690">Claim boundary: 실제 AI provider, 실제 PG, production benchmark/SLO를 주장하지 않습니다.</text>
+  <text class="small" x="48" y="716">Kafka는 이 프로젝트 README 아키텍처에 포함하지 않습니다. invoice/webhook/ledger/audit 경계는 PostgreSQL 기준으로 검증합니다.</text>
 </svg>
