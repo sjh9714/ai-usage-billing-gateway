@@ -21,7 +21,7 @@ local evidence이며, production throughput / latency / error-rate benchmark cla
 ## Claim boundary
 
 - current smoke는 branch 실행 여부와 local idempotency path를 확인하는 증거입니다.
-- production benchmark로 올리려면 hardware/JVM/DB/Redis 조건, dataset 규모, p50/p95/p99,
+- claim boundary: production benchmark로 올리려면 hardware/JVM/DB/Redis 조건, dataset 규모, p50/p95/p99,
   throughput, error rate, duplicate/conflict/quota/rate-limit count를 함께 고정해 기록해야 합니다.
 - 반복 full mixed artifact는 `scripts/run-full-mixed-evidence.sh`로 수집합니다. 이 스크립트가 만드는
   `full-mixed-<timestamp>/` 디렉터리는 k6 summary/console, 접근 가능한 경우 Prometheus before/after sample,
@@ -30,7 +30,7 @@ local evidence이며, production throughput / latency / error-rate benchmark cla
 - 같은 디렉터리의 `capture-summary.json`은 `scripts/summarize-full-mixed-evidence.mjs`가 생성하는
   machine-readable rollup입니다. run별 summary path, guard 통과 여부, checks rate, HTTP failure rate,
   invoice/webhook branch count, optional skip count, metadata path만 담으며 benchmark 수치를 집계하지 않습니다.
-- 2026-05-23 capture는 review 후 local repeat3 측정 evidence로 문서화했습니다. production benchmark로는
+- 2026-05-23 capture는 review 후 local repeat3 측정 evidence로 문서화했습니다. Claim boundary: production benchmark로는
   승격하지 않습니다.
 - superseded diagnostic artifact는 실패 이력을 숨기지 않기 위해 남겨 두지만, 최신 문서의 성공 evidence로
   참조하지 않습니다.
